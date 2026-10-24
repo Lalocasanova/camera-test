@@ -5,26 +5,38 @@
 <meta name="theme-color" content="#101820"><title>Inventory Camera</title>
 <style>
 :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#101820;color:#fff}*{box-sizing:border-box}body{margin:0;overflow:hidden;overscroll-behavior:none}button,input{font:inherit}button{min-height:46px;border:1px solid #536775;border-radius:12px;background:#243642;color:white;padding:10px 15px;cursor:pointer}button:disabled{opacity:.45;cursor:default}input{width:100%;min-height:46px;background:#101c25;color:white;border:1px solid #607887;border-radius:10px;padding:10px;font-size:16px}label{display:block;font-size:12px;color:#c8d8e2}label input{margin-top:4px}#camera,#fallback{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}#camera video{width:100%!important;height:100%!important;object-fit:cover}#camera{border:0!important}#camera>div{display:none}#camera video{display:block}main{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding: max(10px,env(safe-area-inset-top)) 12px max(8px,env(safe-area-inset-bottom))}.panel,.controls{pointer-events:auto;background:#101820df;border:1px solid #425561;border-radius:18px;padding:12px;backdrop-filter:blur(12px)}.row{display:flex;gap:8px;align-items:center}.row>*{min-width:0}.grow{flex:1}.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.filenames{font-size:13px;overflow-wrap:anywhere;line-height:1.65;margin:6px 0}.next{color:#73efd4;font-weight:700}.badge{font-size:12px;color:#9de7d8}.toolbar{justify-content:space-between}.small{font-size:12px;color:#b6c9d5}.controls{background:#101820cf}.shutterrow{justify-content:space-between;margin:8px 0}#shutter{border:5px solid #fff;border-radius:50%;width:78px;height:78px;background:#65e0c6;color:#09261f;font-size:12px;font-weight:800;padding:0}#thumbnail{width:56px;height:56px;object-fit:cover;border-radius:10px;background:#243642}#seq{width:75px;text-align:center}#message{color:#ffda9f;font-size:13px;margin-top:6px}#scanGuide{align-self:center;border:2px solid #74edcf;width:80%;height:125px;border-radius:18px;pointer-events:none}#scanGuide[hidden]{display:none}#historyHandle{width:100%;background:transparent;border:0;touch-action:none;font-size:13px;padding:5px;min-height:35px}#historyHandle:before,.handle:before{content:'';display:block;width:42px;height:4px;background:#a8becb;border-radius:4px;margin:0 auto 6px}#toast{position:fixed;bottom:220px;left:10%;right:10%;background:#d9fff1;color:#103b2e;padding:12px;border-radius:12px;text-align:center;z-index:8;pointer-events:none}dialog{background:#15232e;color:white;border:1px solid #5b7382;border-radius:18px;padding:18px;width:min(94vw,460px);max-height:88dvh;overflow:auto}dialog::backdrop{background:#0009}dialog label{margin:12px 0}h2{font-size:20px;margin:0 0 12px}p{line-height:1.45}#history{position:fixed;z-index:5;bottom:0;left:0;right:0;height:86dvh;background:#14222d;border-radius:22px 22px 0 0;border:1px solid #526b7a;display:flex;flex-direction:column;transform:translateY(105%);transition:transform .2s;overscroll-behavior:contain}#history.open{transform:translateY(0)}.handle{touch-action:none;background:transparent;border:0;border-radius:22px;flex-shrink:0}#history header{padding:0 14px 10px}#historyList{overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;padding:0 14px;flex:1}.entry{border-top:1px solid #3b5262;padding:12px 0}.entry strong{overflow-wrap:anywhere;display:block}.entry .small{margin-top:5px}#historyFooter{padding:10px 14px}.readonly{overflow-wrap:anywhere;background:#0c1820;padding:10px;border-radius:10px;white-space:pre-wrap}#zoomRow{margin-top:6px}input[type=range]{padding:0;min-height:40px}body.label-mode .sku-only{display:none}#settings .row{flex-wrap:wrap}@media(max-height:670px){.panel{padding:8px}.filenames{margin:2px 0}.fields{margin-top:4px}#scanGuide{height:65px}.controls{padding:6px}#shutter{height:66px;width:66px}}
+
+/* Main form and on-demand camera review */
+main{pointer-events:auto;overflow-y:auto;gap:16px;background:radial-gradient(ellipse at top,#264052,#101820 65%)}
+.panel{backdrop-filter:none}.toolbar>strong{flex:1;font-size:16px}
+#syncNow{font-size:13px;line-height:1.2;padding:6px 10px}#syncNow small{display:block;font-size:10px;color:#b6dacf;margin-top:3px}
+.primary{background:#65e0c6;color:#09261f;font-weight:750}#takePhoto{width:100%;margin:16px 0}
+.sku-counter{display:grid;grid-template-columns:minmax(0,1fr) 76px 46px 46px;gap:6px;align-items:end}
+.sku-counter input,.sku-counter button{height:48px;min-height:48px;margin-bottom:0}.sku-counter button{padding:0}.sku-counter #seq{width:100%}
+#next{text-align:center;overflow-wrap:anywhere;margin:14px 0}#scan{width:100%}#last{overflow-wrap:anywhere}
+#photoReview{width:min(96vw,560px)}#reviewImage{display:block;width:100%;height:54dvh;object-fit:contain;background:#08131b;border-radius:12px}#reviewName{overflow-wrap:anywhere;text-align:center}
+#scanDialog{width:min(96vw,540px)}#scanDialog #camera{position:relative;inset:auto;height:52dvh;width:100%;overflow:hidden;border-radius:12px}
+#scanDialog #camera video{height:100%!important;width:100%!important;object-fit:cover}
+#scanDialog #camera>div{display:block}#closeScanner{width:100%}.controls{margin-top:auto}
+@media(max-width:360px){.sku-counter{grid-template-columns:minmax(0,1fr) 64px 44px 44px;gap:4px}main{padding-left:8px;padding-right:8px}.toolbar>strong{font-size:14px}}
 </style>
 </head>
 <body>
-<div id="camera"></div><video id="fallback" autoplay muted playsinline hidden></video>
 <main>
  <section class="panel">
-  <div class="row toolbar"><strong>Inventory Camera</strong><span id="syncBadge" class="badge" role="status">Synced</span><button id="settingsButton" aria-label="Open settings">⚙</button></div>
-  <div class="filenames" aria-live="polite"><div id="last">Last saved: —</div><div id="next" class="next">Next: —</div></div>
-  <div class="row"><label class="grow"><span id="nameLabel">SKU</span><input id="sku" autocomplete="off" placeholder="Scan or type SKU"></label><button id="scan" class="sku-only" aria-pressed="false">Scan</button></div>
-  <div class="fields sku-only"><label>Width (cm)<input id="width" type="number" min="0" step="any" inputmode="decimal"></label><label>Height (cm)<input id="height" type="number" min="0" step="any" inputmode="decimal"></label></div>
-  <div id="message" role="status">Starting rear camera…</div><button id="retryCamera" hidden>Retry camera</button>
+  <div class="row toolbar"><strong>Inventory Camera</strong><button id="syncNow"><span id="syncTitle">Sync now</span><small id="syncAge">Never synced</small></button><button id="settingsButton" aria-label="Open settings">⚙</button></div>
+  <button id="takePhoto" class="primary">Take photo</button>
+  <div class="sku-counter"><label>SKU<input id="sku" autocomplete="off" placeholder="Scan or type SKU"></label><label>Next number<input id="seq" type="number" min="1" step="1" inputmode="numeric" value="1"></label><button id="plus" aria-label="Increase number">+</button><button id="minus" aria-label="Decrease number">−</button></div>
+  <div id="next" class="next" aria-live="polite">Next: —</div>
+  <button id="scan" aria-pressed="false">Scan SKU</button>
+  <div class="fields"><label>Width (cm)<input id="width" type="number" min="0" step="any" inputmode="decimal"></label><label>Height (cm)<input id="height" type="number" min="0" step="any" inputmode="decimal"></label></div>
+  <div id="message" role="status">Ready · take a photo or scan a SKU.</div>
  </section>
- <div id="scanGuide" hidden></div>
- <section class="controls">
-  <div class="row toolbar"><button id="torch" disabled aria-pressed="false">Torch</button><label class="row"><input id="labelMode" type="checkbox" style="width:22px;min-height:24px">Label only</label><button id="syncNow">Sync now</button></div>
-  <div id="zoomRow" class="row" hidden><label for="zoom">Zoom</label><input id="zoom" type="range" aria-label="Camera zoom"></div>
-  <div class="row shutterrow"><img id="thumbnail" alt="Latest captured photo"><button id="shutter" disabled aria-label="Take and download photo">PHOTO</button><div><label for="seq">Next number</label><div class="row"><button id="minus" aria-label="Decrease number">−</button><input id="seq" type="number" min="1" step="1" inputmode="numeric" value="1"><button id="plus" aria-label="Increase number">+</button></div></div></div>
-  <button id="historyHandle" aria-expanded="false" aria-controls="history">History · swipe up</button>
- </section>
+ <section class="controls"><div class="row"><img id="thumbnail" alt="Latest saved photo" hidden><div id="last" class="small">Last saved: —</div></div><button id="historyHandle" aria-expanded="false" aria-controls="history">History · swipe up</button></section>
 </main>
+<input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
+<dialog id="photoReview"><h2>Review photo</h2><img id="reviewImage" alt="Photo ready to save"><p id="reviewName" class="next"></p><p id="reviewError" role="alert"></p><div class="row"><button id="retakePhoto">Retake</button><button id="savePhoto" class="primary">Save</button><button id="cancelPhoto">Cancel</button></div></dialog>
+<dialog id="scanDialog"><h2>Scan SKU</h2><div id="camera"></div><p id="scanStatus" role="status"></p><button id="closeScanner">Close scanner</button></dialog>
 <div id="toast" hidden role="status"></div>
 <section id="history" aria-label="Sheet history" aria-hidden="true" inert>
  <button id="closeHistory" class="handle">History · swipe down to close</button>
@@ -39,15 +51,20 @@
 'use strict';
 // CONFIG
 const KEY='inventory-camera-v1', $=id=>document.getElementById(id);
-const defaults={template:'{sku}_{seq:02}',url:'',token:'',sku:'',width:'',height:'',labelMode:false,counters:{},used:[],queue:[],history:[],last:''};
+const defaults={template:'{sku}_{seq:02}',url:'',token:'',sku:'',width:'',height:'',lastSync:0,counters:{},used:[],queue:[],history:[],last:''};
 // STATE — never discard filename reservations, including after sheet deletion.
 let state;try{state={...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{state={...defaults}}
-let used=new Set(state.used), scanner,track,video,decoding=false,capturing=false,starting=false,torchOn=false,scanTime=0,audioContext,thumbnailUrl;
+let used=new Set(state.used),scanner,decoding=false,capturing=false,starting=false,scanTime=0,audioContext,thumbnailUrl,draft=null,draftUrl=null,photoMetadata=null,scannerClosing=null;
 let revision=0,syncing=false,historyItems=[],historyOffset=0,historyTotal=0,historyGeneration=0,historyLoading=false,historyCached=false,editing=null,searchTimer,lookupTimer;
-function persist(){state.used=[...used];try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch{message('Browser storage is full or unavailable. Capture is disabled to protect filenames.');$('shutter').disabled=true;return false}}
+function persist(){state.used=[...used];try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch{message('Browser storage is full or unavailable. Free storage before saving photos.');return false}}
 function message(s){$('message').textContent=s}
 function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,3500)}
-function badge(){ $('syncBadge').textContent=!navigator.onLine?`Offline${state.queue.length?' · '+state.queue.length+' pending':''}`:state.queue.length?`${state.queue.length} pending`:state.url?'Synced':'Local only'; }
+function badge(){
+ const age=state.lastSync?Math.max(0,Math.floor((Date.now()-state.lastSync)/60000)):null;
+ $('syncAge').textContent=age===null?'Never synced':age===0?'now':age<60?age+' min ago':age<1440?Math.floor(age/60)+' hr ago':Math.floor(age/1440)+' days ago';
+ $('syncTitle').textContent=!navigator.onLine?'Offline'+(state.queue.length?' · '+state.queue.length+' pending':''):syncing?'Syncing…':state.queue.length?'Sync now · '+state.queue.length+' pending':'Sync now';
+ $('syncNow').setAttribute('aria-label',$('syncTitle').textContent+', last synced '+$('syncAge').textContent);
+}
 function counter(){return Math.max(1,Math.trunc(Number(state.counters[state.sku])||1))}
 function setCounter(n){state.counters[state.sku]=Math.max(1,Math.trunc(Number(n)||1));revision++;persist();renderNext()}
 // FILENAME ENGINE
@@ -69,59 +86,77 @@ function uniqueNext(now=new Date()){
 }
 function renderNext(){const next=uniqueNext();if(next.seq!==counter()){state.counters[state.sku]=next.seq;persist()}$('seq').value=next.seq;$('next').textContent='Next: '+(state.sku.trim()?next.filename:'—');$('last').textContent='Last saved: '+(state.last||'—')}
 function skuChanged(value){state.sku=value.trim();revision++;persist();renderNext();clearTimeout(lookupTimer);lookupCounter(state.sku,revision)}
-// CAMERA — exactly one running stream; scanner toggles only gate decoded results.
+// CAMERA — scanning runs only in its dialog; still photos use Android's camera picker.
 async function startCamera(){
- if(starting||track?.readyState==='live')return;starting=true;$('retryCamera').hidden=true;
+ if(starting||scannerClosing)return;starting=true;decoding=true;armAudio();
+ $('scanDialog').showModal();$('scanStatus').textContent='Starting rear camera…';$('scan').disabled=true;
  try{
-  if(!isSecureContext)throw new Error('Camera needs HTTPS. Open the GitHub Pages HTTPS address.');
-  if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera access is unavailable in this browser.');
-  if(window.Html5Qrcode){
-   const F=Html5QrcodeSupportedFormats;scanner=new Html5Qrcode('camera',{formatsToSupport:[F.CODE_128,F.CODE_39,F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.QR_CODE,F.DATA_MATRIX],verbose:false});
-   await scanner.start({facingMode:'environment'},{fps:8,videoConstraints:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}},text=>{if(decoding&&!capturing)onScan(text)},()=>{});
-   video=$('camera').querySelector('video');
-  }else{
-   video=$('fallback');video.hidden=false;video.srcObject=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});await video.play();
-  }
-  track=video.srcObject.getVideoTracks()[0];video.setAttribute('playsinline','');
-  const caps=track.getCapabilities?.()||{};$('torch').disabled=!caps.torch;
-  if(caps.zoom){$('zoomRow').hidden=false;Object.assign($('zoom'),{min:caps.zoom.min,max:caps.zoom.max,step:caps.zoom.step||.1,value:track.getSettings().zoom||caps.zoom.min})}
-  $('shutter').disabled=false;message(window.Html5Qrcode?'Ready · tap preview to focus':'Scanner library failed to load. Type a SKU; photos still work.');
- }catch(e){const names={NotAllowedError:'Camera permission denied. Allow Camera in Chrome site settings, then Retry.',NotFoundError:'No camera found on this device.',NotReadableError:'Camera is busy. Close other camera apps, then Retry.'};message(names[e.name]||e.message);$('retryCamera').hidden=false;$('shutter').disabled=true;try{if(scanner?.isScanning)await scanner.stop()}catch{}scanner=null}
- finally{starting=false;$('scan').disabled=!window.Html5Qrcode}
+  if(!window.Html5Qrcode)throw new Error('Scanner library failed to load. Close this panel and type the SKU.');
+  if(!isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('Camera requires HTTPS and camera permission.');
+  const F=Html5QrcodeSupportedFormats;
+  scanner=new Html5Qrcode('camera',{formatsToSupport:[F.CODE_128,F.CODE_39,F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.QR_CODE,F.DATA_MATRIX],experimentalFeatures:{useBarCodeDetectorIfSupported:false},verbose:false});
+  await scanner.start({facingMode:'environment'},{fps:8,videoConstraints:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}},text=>{if(decoding&&!starting)onScan(text)},()=>{});
+  if(!$('scanDialog').open){await stopScannerStream();return}
+  $('scanStatus').textContent='Point at a barcode or QR code.';
+ }catch(e){$('scanStatus').textContent=e.name==='NotAllowedError'?'Camera permission denied. Allow Camera in Chrome site settings.':e.name==='NotFoundError'?'No camera found. Type the SKU instead.':e.message}
+ finally{starting=false;$('scan').disabled=false}
 }
-async function applyCamera(constraints){try{await track.applyConstraints({advanced:[constraints]})}catch{toast('This camera could not apply that control.')}}
-async function focusAt(e){if(!track||e.target.closest('main,dialog,#history'))return;const caps=track.getCapabilities?.()||{};if(caps.focusMode?.includes('single-shot')){const r=video.getBoundingClientRect();await applyCamera({focusMode:'single-shot',pointsOfInterest:[{x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height}]})}}
+async function stopScannerStream(){
+ if(scannerClosing)return scannerClosing;
+ const current=scanner;
+ scannerClosing=(async()=>{try{if(current?.isScanning)await current.stop();current?.clear()}catch{}})();
+ try{await scannerClosing}finally{if(scanner===current)scanner=null;scannerClosing=null}
+}
+async function closeScanner(){decoding=false;if($('scanDialog').open)$('scanDialog').close();if(!starting)await stopScannerStream()}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&$('scanDialog').open)void closeScanner()});
 // SCANNER
 function armAudio(){try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();audioContext.resume()}catch{}}
 function feedback(){navigator.vibrate?.(100);try{const osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.frequency.value=1000;gain.gain.value=.12;osc.connect(gain);gain.connect(audioContext.destination);osc.start();osc.stop(audioContext.currentTime+.12)}catch{}}
-function toggleScan(){if(state.labelMode)return;armAudio();decoding=!decoding;renderScan()}
-function renderScan(){$('scan').textContent=decoding?'Scanning…':'Scan';$('scan').setAttribute('aria-pressed',decoding);$('scanGuide').hidden=!decoding}
-function onScan(text){if(Date.now()-scanTime<1200)return;scanTime=Date.now();$('sku').value=text;skuChanged(text);feedback();decoding=false;renderScan();toast('SKU scanned')}
-// CAPTURE — serialize taps; reserve names before dispatching a browser download.
-async function jpegBlob(){
- if(window.ImageCapture){try{const ic=new ImageCapture(track),caps=await ic.getPhotoCapabilities();let opts={};if(caps.imageWidth?.max)opts.imageWidth=caps.imageWidth.max;if(caps.imageHeight?.max)opts.imageHeight=caps.imageHeight.max;const blob=await ic.takePhoto(opts);if(blob.type==='image/jpeg')return blob;const bitmap=await createImageBitmap(blob);try{return await canvasJPEG(bitmap,bitmap.width,bitmap.height)}finally{bitmap.close()}}catch{/* Fall back without interrupting the running preview. */}}
- if(!video.videoWidth)throw new Error('Camera is not ready. Try again.');return canvasJPEG(video,video.videoWidth,video.videoHeight);
+function onScan(text){if(Date.now()-scanTime<1200)return;scanTime=Date.now();decoding=false;$('sku').value=text;skuChanged(text);feedback();void closeScanner();toast('SKU scanned')}
+// CAPTURE — review first; only Save reserves the name, downloads and advances the counter.
+function canvasJPEG(source,w,h){const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(source,0,0,w,h);return new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('JPEG conversion failed.')),'image/jpeg',1))}
+async function jpegFromFile(file){
+ if(file.type==='image/jpeg')return file;
+ const image=await createImageBitmap(file);try{return await canvasJPEG(image,image.width,image.height)}finally{image.close()}
 }
-function canvasJPEG(source,w,h){const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(source,0,0,w,h);return new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('JPEG capture failed.')),'image/jpeg',1))}
-async function capture(){
- if(capturing||!track)return;if(!state.sku.trim()){toast('Enter a SKU or label name first.');$('sku').focus();return}
- capturing=true;$('shutter').disabled=true;
- // Freeze metadata and disable fields while a still is being exposed.
- const controls=['sku','width','height','seq','minus','plus','settingsButton','labelMode'];controls.forEach(id=>$(id).disabled=true);
+function takePhoto(){
+ if(!state.sku.trim()){toast('Enter or scan a SKU first.');$('sku').focus();return}
+ if(capturing&&!draft)return;
+ if(!draft){const now=new Date();photoMetadata={now,sku:state.sku,width:state.width,height:state.height};capturing=true}
+ $('photoInput').value='';$('photoInput').click();
+}
+async function receivedPhoto(){
+ const file=$('photoInput').files[0];if(!file){if(!draft)cancelPhoto();return}
+ $('takePhoto').disabled=true;$('retakePhoto').disabled=true;$('savePhoto').disabled=true;
  try{
-  const now=new Date(),chosen=uniqueNext(now),row={action:'add',ts:now.toISOString(),sku:state.sku,seq:chosen.seq,filename:chosen.filename,width:state.width,height:state.height};
-  const blob=await jpegBlob();const latest=uniqueNext(now);row.seq=latest.seq;row.filename=latest.filename;used.add(row.filename);state.counters[row.sku]=row.seq+1;revision++;
-  state.last=row.filename;state.queue.push({id:crypto.randomUUID(),...row});if(!persist())throw new Error('Could not reserve filename. Free browser storage before capturing.');
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=row.filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  if(thumbnailUrl)URL.revokeObjectURL(thumbnailUrl);thumbnailUrl=URL.createObjectURL(blob);$('thumbnail').src=thumbnailUrl;
-  renderNext();badge();toast('Saved: '+row.filename);void syncQueue();
- }catch(e){toast(e.message)}finally{capturing=false;$('shutter').disabled=false;controls.forEach(id=>$(id).disabled=false)}
+  const blob=await jpegFromFile(file);if(draftUrl)URL.revokeObjectURL(draftUrl);draftUrl=URL.createObjectURL(blob);
+  draft={blob,...photoMetadata,...uniqueNext(photoMetadata.now)};$('reviewImage').src=draftUrl;$('reviewName').textContent=draft.filename;$('reviewError').textContent='';
+  if(!$('photoReview').open)$('photoReview').showModal();
+ }catch(e){toast('Could not open photo: '+e.message);if(!draft)cancelPhoto()}
+ finally{$('takePhoto').disabled=false;$('retakePhoto').disabled=false;$('savePhoto').disabled=false}
+}
+function cancelPhoto(){
+ if($('photoReview').open)$('photoReview').close();
+ if(draftUrl)URL.revokeObjectURL(draftUrl);draftUrl=null;draft=null;photoMetadata=null;capturing=false;$('photoInput').value='';$('reviewImage').removeAttribute('src');renderNext();
+}
+function savePhoto(){
+ if(!draft)return;
+ // Background sheet indexing may discover a collision during review. Show the replacement before saving.
+ if(used.has(draft.filename)){Object.assign(draft,uniqueNext(draft.now));$('reviewName').textContent=draft.filename;$('reviewError').textContent='That filename already exists. Review the updated name and tap Save again.';return}
+ const row={action:'add',ts:draft.now.toISOString(),sku:draft.sku,seq:draft.seq,filename:draft.filename,width:draft.width,height:draft.height};
+ const oldCounter=state.counters[row.sku],oldLast=state.last,id=crypto.randomUUID();
+ used.add(row.filename);state.counters[row.sku]=row.seq+1;state.last=row.filename;state.queue.push({id,...row});
+ if(!persist()){used.delete(row.filename);state.counters[row.sku]=oldCounter;state.last=oldLast;state.queue=state.queue.filter(r=>r.id!==id);$('reviewError').textContent='Could not save filename reservation. Free browser storage and retry.';return}
+ revision++;
+ const url=URL.createObjectURL(draft.blob),a=document.createElement('a');a.href=url;a.download=row.filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+ if(thumbnailUrl)URL.revokeObjectURL(thumbnailUrl);thumbnailUrl=URL.createObjectURL(draft.blob);$('thumbnail').src=thumbnailUrl;$('thumbnail').hidden=false;
+ cancelPhoto();badge();toast('Saved: '+row.filename);void syncQueue();
 }
 // SHEET SYNC — simple text POST, ordered durable queue, no network work on shutter path.
 function endpoint(params={}){if(!state.url)throw new Error('Set Script URL and Token in Settings.');const url=new URL(state.url);url.searchParams.set('token',state.token);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,String(v)));return url}
 async function request(params={},payload=null){
  const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),5000);
- try{const response=await fetch(endpoint(params),payload?{method:'POST',body:JSON.stringify({token:state.token,...payload}),signal:abort.signal,redirect:'follow'}:{signal:abort.signal,cache:'no-store',redirect:'follow'});if(!response.ok)throw new Error('Sheet HTTP '+response.status);const data=await response.json();if(!data.ok)throw new Error(data.error||'Sheet request rejected.');return data}finally{clearTimeout(timer)}
+ try{const response=await fetch(endpoint(params),payload?{method:'POST',body:JSON.stringify({token:state.token,...payload}),signal:abort.signal,redirect:'follow'}:{signal:abort.signal,cache:'no-store',redirect:'follow'});if(!response.ok)throw new Error('Sheet HTTP '+response.status);const data=await response.json();if(!data.ok)throw new Error(data.error||'Sheet request rejected.');state.lastSync=Date.now();persist();badge();return data}finally{clearTimeout(timer)}
 }
 async function lookupCounter(sku,version){if(!sku||!state.url||!navigator.onLine)return;const url=state.url;try{const data=await request({sku});const last=Number(data.lastSeq);if(state.sku===sku&&revision===version&&url===state.url&&!capturing&&Number.isFinite(last)&&last>=0){const pending=state.queue.filter(r=>r.action==='add'&&r.sku===sku).map(r=>Number(r.seq));state.counters[sku]=Math.max(last+1,...pending.map(n=>n+1),1);persist();renderNext()}void syncQueue()}catch{/* Local next remains usable when the sheet is unavailable. */}}
 // Index every sheet filename, not just the most recent history page.
@@ -129,7 +164,7 @@ let indexing=false;
 async function indexSheetNames(){if(indexing||!state.url||!navigator.onLine)return;indexing=true;const source=state.url;try{let offset=0;while(source===state.url){const data=await request({action:'list',limit:50,offset});if(!Array.isArray(data.items))break;data.items.forEach(r=>used.add(r.filename));persist();if(!capturing)renderNext();offset+=data.items.length;if(!data.items.length||offset>=Number(data.total))break}void syncQueue()}catch{/* Existing reservations remain authoritative offline. */}finally{indexing=false}}
 async function syncQueue(){if(syncing||!navigator.onLine||!state.url){badge();return}syncing=true;try{while(state.queue.length){const item=state.queue[0];const {id,...payload}=item;await request({},payload);state.queue=state.queue.filter(r=>r.id!==id);persist();badge()}}catch(e){message('Sheet sync pending: '+e.message)}finally{syncing=false;badge()}}
 function queueMutation(payload){state.queue.push({id:crypto.randomUUID(),...payload});persist();badge();void syncQueue()}
-// HISTORY PANEL — keep camera alive behind the sheet; textContent for all sheet content.
+// HISTORY PANEL — textContent for all sheet content.
 function openHistory(){ $('history').classList.add('open');$('history').inert=false;$('history').setAttribute('aria-hidden','false');$('historyHandle').setAttribute('aria-expanded','true');void loadHistory(true)}
 function closeHistory(){$('history').classList.remove('open');$('history').inert=true;$('history').setAttribute('aria-hidden','true');$('historyHandle').setAttribute('aria-expanded','false');$('historyHandle').focus()}
 function cachedHistory(){historyCached=true;historyItems=state.history.filter(r=>!$('search').value||[r.sku,r.filename].some(s=>String(s).toLowerCase().includes($('search').value.toLowerCase())));historyTotal=historyItems.length;historyOffset=historyTotal;renderHistory();$('historyStatus').textContent='Cached list · read-only. Open a row to queue a dimension change.';$('retryHistory').hidden=false;$('loadMore').hidden=true}
@@ -151,13 +186,13 @@ async function saveEdit(e){e.preventDefault();if(!editing)return;const payload={
 async function deleteRow(){if(!editing||!confirm('Delete this sheet row? The downloaded photo will remain on your phone.'))return;const filename=editing.filename;$('deleteEntry').disabled=true;try{await request({},{action:'delete',filename});historyItems=historyItems.filter(r=>r.filename!==filename);state.history=state.history.filter(r=>r.filename!==filename);historyTotal=Math.max(0,historyTotal-1);historyOffset=Math.max(0,historyOffset-1);persist();renderHistory();$('editDialog').close();toast('Sheet row deleted');void syncQueue()}catch(e){$('editError').textContent=e.message+' · row was not confirmed deleted. Retry when online.'}finally{$('deleteEntry').disabled=false}}
 function swipe(element,up,down){let y=null;element.addEventListener('pointerdown',e=>{y=e.clientY;element.setPointerCapture(e.pointerId)});element.addEventListener('pointerup',e=>{if(y===null)return;const delta=e.clientY-y;y=null;if(Math.abs(delta)>35){element.dataset.swiped='1';delta<0?up():down();setTimeout(()=>delete element.dataset.swiped,400)}});element.addEventListener('pointercancel',()=>y=null)}
 // UI
-$('sku').value=state.sku;$('width').value=state.width;$('height').value=state.height;$('labelMode').checked=state.labelMode;
-function labelUI(){document.body.classList.toggle('label-mode',state.labelMode);$('nameLabel').textContent=state.labelMode?'Name':'SKU';if(state.labelMode){decoding=false;renderScan()}}
+$('sku').value=state.sku;$('width').value=state.width;$('height').value=state.height;
 $('sku').addEventListener('input',e=>skuChanged(e.target.value));for(const field of ['width','height'])$(field).addEventListener('input',e=>{state[field]=e.target.value;persist();renderNext()});
-$('seq').onchange=e=>setCounter(e.target.value);$('minus').onclick=()=>setCounter(counter()-1);$('plus').onclick=()=>setCounter(counter()+1);$('scan').onclick=toggleScan;$('shutter').onclick=capture;
-$('retryCamera').onclick=startCamera;$('torch').onclick=async()=>{const next=!torchOn;try{await track.applyConstraints({advanced:[{torch:next}]});torchOn=next;$('torch').setAttribute('aria-pressed',torchOn);$('torch').textContent=torchOn?'Torch on':'Torch'}catch{toast('Torch is unavailable.')}};
-$('zoom').oninput=e=>void applyCamera({zoom:Number(e.target.value)});document.addEventListener('pointerup',focusAt);
-$('labelMode').onchange=e=>{state.labelMode=e.target.checked;persist();labelUI()};$('syncNow').onclick=()=>{if(!state.url){$('settingsButton').click();return}void syncQueue()};
+$('seq').onchange=e=>setCounter(e.target.value);$('minus').onclick=()=>setCounter(counter()-1);$('plus').onclick=()=>setCounter(counter()+1);
+$('scan').onclick=startCamera;$('closeScanner').onclick=closeScanner;$('scanDialog').addEventListener('cancel',e=>{e.preventDefault();void closeScanner()});
+$('takePhoto').onclick=takePhoto;$('photoInput').onchange=receivedPhoto;$('photoInput').addEventListener('cancel',()=>{if(!draft)cancelPhoto()});
+$('retakePhoto').onclick=takePhoto;$('savePhoto').onclick=savePhoto;$('cancelPhoto').onclick=cancelPhoto;$('photoReview').addEventListener('cancel',e=>{e.preventDefault();cancelPhoto()});
+$('syncNow').onclick=async()=>{if(!state.url){$('settingsButton').click();return}await syncQueue();lookupCounter(state.sku,revision);void indexSheetNames()};
 $('settingsButton').onclick=()=>{$('template').value=state.template;$('scriptUrl').value=state.url;$('token').value=state.token;$('settings').showModal()};$('cancelSettings').onclick=()=>$('settings').close();
 $('settingsForm').onsubmit=e=>{e.preventDefault();state.template=$('template').value.trim()||defaults.template;state.url=$('scriptUrl').value.trim();state.token=$('token').value;revision++;persist();renderNext();badge();$('settings').close();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames()};
 $('historyHandle').onclick=()=>{if(!$('historyHandle').dataset.swiped)openHistory()};$('closeHistory').onclick=()=>{if(!$('closeHistory').dataset.swiped)closeHistory()};swipe($('historyHandle'),openHistory,()=>{});swipe($('closeHistory'),()=>{},closeHistory);
@@ -165,9 +200,9 @@ $('search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>lo
 $('editForm').onsubmit=saveEdit;$('deleteEntry').onclick=deleteRow;$('cancelEdit').onclick=()=>$('editDialog').close();
 window.addEventListener('online',()=>{badge();void syncQueue();lookupCounter(state.sku,revision);void indexSheetNames()});window.addEventListener('offline',()=>{badge();if($('history').classList.contains('open')){historyGeneration++;historyLoading=false;cachedHistory()}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('settings').open&&!$('editDialog').open)closeHistory()});
-labelUI();renderNext();badge();void startCamera();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames();
+renderNext();badge();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames();
 // Refresh time tokens without changing the frozen metadata of an in-flight capture.
-setInterval(()=>{if(!capturing)renderNext()},1000);
+setInterval(()=>{if(!capturing)renderNext();badge()},1000);
 </script>
 </body>
 </html>

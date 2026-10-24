@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Camera Overlay Test</title>
+    <title>Camera Scanner Overlay</title>
+    <!-- Include the HTML5-QRCode Library from a public CDN -->
+    <script src="https://cloudflare.com" integrity="sha512-r6rDA7W6ZeQFrwt4Mmni7OtfHzwjv56VBlwC01wqQN5P50cHOUf68cJvY8w50ToyrpkE6MvJEIhgTulXqpqFFA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         /* Reset and force full screen */
         * {
@@ -28,10 +30,16 @@
             height: 100%;
             z-index: 1;
         }
-        video {
+        /* Both elements must layer exactly on top of each other */
+        video, #reader {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            border: none !important;
+        }
+        /* Clean up html5-qrcode's default text/button styles to keep UI clean */
+        #reader video {
+            object-fit: cover !important;
         }
 
         /* UI OVERLAY LAYER: Floats directly over the video */
@@ -56,26 +64,62 @@
 
         /* Top Bar styling */
         .top-bar {
-            background: rgba(0, 0, 0, 0.65);
+            background: rgba(0, 0, 0, 0.75);
             padding: 15px;
             border-radius: 12px;
             color: #fff;
             backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
-        .sku-display {
-            font-size: 18px;
+        
+        .sku-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sku-label {
+            font-size: 16px;
             font-weight: bold;
-            margin-bottom: 5px;
             color: #00ff88;
+            white-space: nowrap;
+        }
+        
+        .sku-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #00ff88;
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .scan-trigger-btn {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .scan-trigger-btn.scanning {
+            background: #ff3b30;
+            color: #fff;
         }
 
         /* Form Fields styling */
         .input-group {
             display: flex;
             gap: 10px;
-            margin-top: 10px;
         }
-        input {
+        input.field {
             flex: 1;
             padding: 12px;
             border: 1px solid rgba(255,255,255,0.3);
@@ -117,9 +161,9 @@
 </head>
 <body>
 
-    <!-- Camera Layer -->
+    <!-- Camera Layer: Container for the scanner engine -->
     <div class="camera-container">
-        <video id="webcam" autoplay playsinline muted></video>
+        <div id="reader"></div>
     </div>
 
     <!-- UI Overlay Layer -->
@@ -127,10 +171,15 @@
         
         <!-- Top data collection panel -->
         <div class="top-bar interactive">
-            <div class="sku-display" id="skuText">Active SKU: [Scan Pending]</div>
+            <div class="sku-row">
+                <span class="sku-label">Active SKU:</span>
+                <input type="text" id="skuField" class="sku-input" placeholder="[Scan or Type]" readonly>
+                <button id="scanBtn" class="scan-trigger-btn" onclick="toggleScanner()">Scan</button>
+            </div>
+            
             <div class="input-group">
-                <input type="text" id="widthInput" placeholder="Width (cm)">
-                <input type="text" id="heightInput" placeholder="Height (cm)">
+                <input type="text" id="widthInput" class="field" placeholder="Width (cm)">
+                <input type="text" id="heightInput" class="field" placeholder="Height (cm)">
             </div>
         </div>
 
@@ -142,35 +191,82 @@
     </div>
 
     <script>
-        const video = document.getElementById('webcam');
+        let html5QrCode;
+        let isScanning = false;
+        const skuField = document.getElementById('skuField');
+        const scanBtn = document.getElementById('scanBtn');
 
-        // Request camera permission and stream immediately
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        // 'environment' forces the back camera on phones
-                        facingMode: { ideal: "environment" },
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    },
-                    audio: false
+        // Automatically start the continuous background camera stream on load
+        function initBackgroundCamera() {
+            html5QrCode = new Html5Qrcode("reader");
+            // Start streaming immediately in view-only mode
+            startScannerStream(false); 
+        }
+
+        function startScannerStream(enableDecoding) {
+            const config = { 
+                fps: 20, 
+                qrbox: function(width, height) {
+                    // Configures a wide rectangular scanning box ideal for standard 1D barcodes
+                    return { width: width * 0.8, height: height * 0.3 };
+                }
+            };
+
+            // Switch handling depending on whether we want to read barcodes or just show preview
+            const onScanSuccess = enableDecoding ? (decodedText) => {
+                skuField.value = decodedText; // Dump barcode value directly into the text field
+                vibratePhone();
+                stopScanner(); // Stop analyzing frames once code is captured
+            } : null;
+
+            html5QrCode.start(
+                { facingMode: "environment" }, // Target the rear lens
+                config,
+                onScanSuccess,
+                (errorMessage) => {
+                    // Suppress continuous engine frame errors to avoid console clogging
+                }
+            ).catch((err) => {
+                console.error("Camera startup failed: ", err);
+            });
+        }
+
+        function toggleScanner() {
+            if (!isScanning) {
+                // Turn on decoding engine
+                isScanning = true;
+                scanBtn.innerText = "Stop";
+                scanBtn.classList.add('scanning');
+                html5QrCode.stop().then(() => {
+                    startScannerStream(true); // Restart camera with decoder callback active
                 });
-                video.srcObject = stream;
-            } catch (err) {
-                console.error("Error accessing camera: ", err);
-                alert("Camera access denied or unavailable. Make sure you use HTTPS or open via Local Server.");
+            } else {
+                stopScanner();
+            }
+        }
+
+        function stopScanner() {
+            isScanning = false;
+            scanBtn.innerText = "Scan";
+            scanBtn.classList.remove('scanning');
+            html5QrCode.stop().then(() => {
+                startScannerStream(false); // Drop back down to passive camera viewing layer
+            });
+        }
+
+        function vibratePhone() {
+            if (navigator.vibrate) {
+                navigator.vibrate(100); // 100ms haptic feedback bump on code clear
             }
         }
 
         function takePhoto() {
-            // Flash effect or log confirmation for testing
-            console.log("Photo action clicked!");
-            alert("Shutter clicked! Next steps will handle saving this frame to your SKU.");
+            const activeSku = skuField.value || "No_SKU";
+            alert(`Shutter clicked! Ready to export picture named as: ${activeSku}_timestamp.jpg`);
         }
 
-        // Run camera startup on page load
-        window.addEventListener('DOMContentLoaded', startCamera);
+        // Initialize engine hooks when file paints onto screen
+        window.addEventListener('DOMContentLoaded', initBackgroundCamera);
     </script>
 </body>
 </html>

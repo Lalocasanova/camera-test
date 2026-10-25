@@ -39,23 +39,35 @@ main{pointer-events:auto;overflow-y:auto;gap:16px;background:radial-gradient(ell
 #scanDialog #camera{position:absolute;inset:0;width:100%;height:100%;border-radius:0}
 #closeScanner{position:absolute;z-index:3;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:48px;height:48px;min-height:48px;border-radius:50%;padding:0;font-size:32px;line-height:1;background:#101820cc}
 #scanStatus{position:absolute;z-index:2;left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));margin:0;padding:10px 12px;background:#101820dd;border-radius:10px;font-size:13px}
-#scanStatus:empty{display:none}
+#scanStatus:empty,#message:empty{display:none}
 #retryScan{position:absolute;z-index:2;left:16px;bottom:calc(16px + env(safe-area-inset-bottom));width:calc(100% - 32px);margin:0;background:#243642e6}
+#sequenceError{color:#ffda9f;font-size:13px;text-align:center;margin:8px 0}#sequenceError:empty{display:none}
+
+/* Standard and Shopify forms share camera and filename controls. */
+select,textarea{font:inherit;font-size:16px;color:white;background:#101c25;border:1px solid #607887;border-radius:10px;padding:10px;width:100%;min-height:46px}
+.mode-label{margin-top:14px}.mode-label select{margin-top:4px}
+#shopifyFields{margin-top:18px}#shopifyFields label,#editProductFields label{margin-top:10px}#shopifyFields h2{margin:0}
+.shopify-actions{margin-top:10px;flex-wrap:wrap}.shopify-actions>*{flex:1}#shopifyStatus{font-size:13px;color:#ffda9f;overflow-wrap:anywhere}
+#standardFields[hidden],#shopifyFields[hidden],#editDimensions[hidden],#editProductFields[hidden]{display:none}
 </style>
 </head>
 <body>
 <main>
  <section class="panel">
   <div class="row toolbar"><strong>Inventory Camera</strong><button id="syncNow"><span id="syncTitle">Sync now</span><small id="syncAge">Never synced</small></button><button id="settingsButton" aria-label="Open settings">⚙</button></div>
+  <label class="mode-label">Template<select id="mode"><option value="standard">Standard</option><option value="shopify">Shopify</option></select></label>
   <button id="takePhoto" class="primary">Take photo</button>
   <div class="sku-counter"><label>SKU<div class="sku-input-wrap"><input id="sku" autocomplete="off" placeholder="Scan or type SKU"><button id="scan" type="button" aria-label="Scan SKU">Scan</button></div></label><label>Next number<input id="seq" type="number" min="1" step="1" inputmode="numeric" value="1"></label><button id="plus" aria-label="Increase number">+</button><button id="minus" aria-label="Decrease number">−</button></div>
   <div id="next" class="next" aria-live="polite">Next: —</div>
   <div id="last" class="small">Last saved: —</div>
-  <div class="fields"><label>Width<input id="width" type="number" min="0" step="any" inputmode="decimal"></label><label>Height<input id="height" type="number" min="0" step="any" inputmode="decimal"></label></div>
-  <div id="message" role="status">Ready · take a photo or scan a SKU.</div>
+  <div id="sequenceError" role="status"></div>
+  <div id="standardFields" class="fields"><label>Width<input id="width" type="number" min="0" step="any" inputmode="decimal"></label><label>Height<input id="height" type="number" min="0" step="any" inputmode="decimal"></label></div>
+  <section id="shopifyFields" hidden><h2>Simple product</h2><label>Product title<input id="p-title" autocomplete="off" placeholder="Product title"></label><div class="fields"><label>Price<input id="p-price" type="number" min="0" step="0.01" inputmode="decimal"></label><label>Quantity<input id="p-quantity" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Description<textarea id="p-description" rows="3"></textarea></label><div class="fields"><label>Vendor<input id="p-vendor"></label><label>Product type<input id="p-type"></label></div><label>Tags<input id="p-tags" placeholder="vintage, lighting"></label><div class="fields"><label>Weight (grams)<input id="p-weight" type="number" min="0" step="1" inputmode="numeric"></label><label>Status<select id="p-status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label></div><p class="small">Handle: <span id="productHandle">—</span></p><button id="saveProduct" type="button">Save product details</button><div class="row shopify-actions"><button id="exportShopify" type="button">Export Shopify CSV</button><button id="uploadTemplate" type="button">Update CSV template</button></div><p class="small">Image URL cells contain filenames for now. Replace them with public URLs before importing images. Quantity assumes a single Shopify location.</p><div id="shopifyStatus" role="status"></div></section>
+  <div id="message" role="status"></div>
  </section>
  <section class="controls"><div class="row"><img id="thumbnail" alt="Latest saved photo" hidden></div><button id="historyHandle" aria-expanded="false" aria-controls="history">History · swipe up</button></section>
 </main>
+<input id="templateInput" type="file" accept=".csv,text/csv" hidden>
 <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
 <dialog id="photoReview"><h2>Review photo</h2><img id="reviewImage" alt="Photo ready to save"><p id="reviewName" class="next"></p><p id="reviewError" role="alert"></p><div class="row"><button id="retakePhoto">Retake</button><button id="savePhoto" class="primary">Save</button><button id="cancelPhoto">Cancel</button></div></dialog>
 <dialog id="scanDialog" aria-label="Barcode scanner"><button id="closeScanner" type="button" aria-label="Close scanner">×</button><div id="camera"></div><p id="scanStatus" role="status"></p><button id="retryScan" hidden>Retry scanner</button></dialog>
@@ -66,19 +78,20 @@ main{pointer-events:auto;overflow-y:auto;gap:16px;background:radial-gradient(ell
  <div id="historyList"></div><div id="historyFooter" class="row"><button id="retryHistory" hidden>Retry</button><button id="loadMore" hidden>Load more</button><button id="refreshHistory">Refresh</button></div>
 </section>
 <dialog id="settings"><h2>Settings</h2><form id="settingsForm"><label>Filename template<input id="template" required></label><p class="small">Tokens: {sku}, {seq}, {seq:02}, {w}, {h}, {date}, {time}. Date: YYYYMMDD; time: HHmmss. Dimensions never change names unless included here. Use a sequence token for predictable numbering.</p><label>Apps Script web app URL<input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label><label>Token<input id="token" type="password" autocomplete="off"></label><p class="small">Credentials, counters and pending rows stay in this browser. Keep this tab open for offline capture; loading the app offline is not guaranteed. Downloads are controlled by Chrome settings.</p><div class="row"><button type="submit">Save settings</button><button type="button" id="cancelSettings">Cancel</button></div></form></dialog>
-<dialog id="editDialog"><h2>Edit dimensions</h2><div id="editIdentity" class="readonly"></div><p id="editNotice" class="small"></p><form id="editForm"><div class="fields"><label>Width<input id="editWidth" type="number" min="0" step="any"></label><label>Height<input id="editHeight" type="number" min="0" step="any"></label></div><p id="editError" role="alert"></p><div class="row"><button id="saveEdit" type="submit">Save</button><button id="deleteEntry" type="button">Delete</button><button id="cancelEdit" type="button">Close</button></div></form></dialog>
+<dialog id="editDialog"><h2 id="editHeading">Edit dimensions</h2><div id="editIdentity" class="readonly"></div><p id="editNotice" class="small"></p><form id="editForm"><div id="editDimensions" class="fields"><label>Width<input id="editWidth" type="number" min="0" step="any"></label><label>Height<input id="editHeight" type="number" min="0" step="any"></label></div><div id="editProductFields" hidden><label>Product title<input id="e-title" autocomplete="off" placeholder="Product title"></label><div class="fields"><label>Price<input id="e-price" type="number" min="0" step="0.01" inputmode="decimal"></label><label>Quantity<input id="e-quantity" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Description<textarea id="e-description" rows="3"></textarea></label><div class="fields"><label>Vendor<input id="e-vendor"></label><label>Product type<input id="e-type"></label></div><label>Tags<input id="e-tags" placeholder="vintage, lighting"></label><div class="fields"><label>Weight (grams)<input id="e-weight" type="number" min="0" step="1" inputmode="numeric"></label><label>Status<select id="e-status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label></div></div><p id="editError" role="alert"></p><div class="row"><button id="saveEdit" type="submit">Save</button><button id="deleteEntry" type="button">Delete</button><button id="cancelEdit" type="button">Close</button></div></form></dialog>
 <!-- One pinned scanner dependency; manual entry and camera fallback survive a CDN failure. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" onerror="window.scannerLoadFailed=true"></script>
 <script>
 'use strict';
 // CONFIG
 const KEY='inventory-camera-v1', $=id=>document.getElementById(id);
-const defaults={template:'{sku}_{seq:02}',url:'',token:'',sku:'',width:'',height:'',lastSync:0,counters:{},used:[],queue:[],history:[],last:''};
+const defaults={template:'{sku}_{seq:02}',url:'',token:'',sku:'',width:'',height:'',lastSync:0,mode:'standard',products:{},historyByMode:{},counters:{},used:[],savedPairs:[],queue:[],history:[],last:''};
 // STATE — never discard filename reservations, including after sheet deletion.
 let state;try{state={...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{state={...defaults}}
-let used=new Set(state.used),scanner,decoding=false,capturing=false,starting=false,scanTime=0,audioContext,thumbnailUrl,draft=null,draftUrl=null,photoMetadata=null,scannerClosing=null,scannerWatchdog=null,focusBusy=false;
+state.historyByMode.standard ||= state.history;
+let used=new Set(state.used),savedPairs=new Set(state.savedPairs),scanner,decoding=false,capturing=false,starting=false,scanTime=0,audioContext,thumbnailUrl,draft=null,draftUrl=null,photoMetadata=null,scannerClosing=null,scannerWatchdog=null,focusBusy=false;
 let revision=0,syncing=false,historyItems=[],historyOffset=0,historyTotal=0,historyGeneration=0,historyLoading=false,historyCached=false,editing=null,searchTimer,lookupTimer,scanTarget='sku';
-function persist(){state.used=[...used];try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch{message('Browser storage is full or unavailable. Free storage before saving photos.');return false}}
+function persist(){state.used=[...used];state.savedPairs=[...savedPairs];try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch{message('Browser storage is full or unavailable. Free storage before saving photos.');return false}}
 function message(s){$('message').textContent=s}
 function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,3500)}
 function badge(){
@@ -87,13 +100,18 @@ function badge(){
  $('syncTitle').textContent=!navigator.onLine?'Offline'+(state.queue.length?' · '+state.queue.length+' pending':''):syncing?'Syncing…':state.queue.length?'Sync now · '+state.queue.length+' pending':'Sync now';
  $('syncNow').setAttribute('aria-label',$('syncTitle').textContent+', last synced '+$('syncAge').textContent);
 }
+// Reserve SKU/sequence pairs independently of templates, dates, and dimensions.
+function pairKey(sku,seq){return JSON.stringify([String(sku).trim(),Number(seq)])}
+function rememberRow(row){used.add(row.filename);if(row.sku!=null&&Number(row.seq)>=1)savedPairs.add(pairKey(row.sku,row.seq))}
+for(const row of [...state.history,...state.queue.filter(r=>r.action==='add')])rememberRow(row);
+function alreadySaved(sku,seq,name){return used.has(name)||savedPairs.has(pairKey(sku,seq))}
 function counter(){return Math.max(1,Math.trunc(Number(state.counters[state.sku])||1))}
 function setCounter(n){state.counters[state.sku]=Math.max(1,Math.trunc(Number(n)||1));revision++;persist();renderNext()}
 // FILENAME ENGINE
 function safeName(s){return s.normalize('NFKC').replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g,'_').replace(/[. ]+$/g,'').replace(/^\.+/,'_').trim()}
 function filename(n,now=new Date()){
  const pad=v=>String(v).padStart(2,'0'),date=now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate()),time=pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds());
- let name=state.template.replace(/\{(sku|seq(?::02)?|w|h|date|time)\}/g,(_,t)=>({sku:state.sku,seq:n,'seq:02':String(n).padStart(2,'0'),w:state.width,h:state.height,date,time}[t]));
+ let name=state.template.replace(/\{(sku|seq(?::02)?|w|h|date|time)\}/g,(_,t)=>({sku:state.sku,seq:n,'seq:02':String(n).padStart(2,'0'),w:state.mode==='shopify'?'':state.width,h:state.mode==='shopify'?'':state.height,date,time}[t]));
  name=safeName(name.replace(/\.jpe?g$/i,''))||'photo';if(/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name))name='_'+name;
  // Leave room for a disambiguating number and extension on common filesystems.
  return Array.from(name).slice(0,140).join('')+'.jpg';
@@ -106,8 +124,16 @@ function uniqueNext(now=new Date()){
  else while(used.has(name)){n++;name=filename(n,now)}
  return {seq:n,filename:name};
 }
-function renderNext(){const next=uniqueNext();if(next.seq!==counter()){state.counters[state.sku]=next.seq;persist()}$('seq').value=next.seq;$('next').textContent='Next: '+(state.sku.trim()?next.filename:'—');$('last').textContent='Last saved: '+(state.last||'—')}
-function skuChanged(value){state.sku=value.trim();revision++;persist();renderNext();clearTimeout(lookupTimer);lookupCounter(state.sku,revision)}
+function renderNext(){
+ const seq=counter(),name=filename(seq),blocked=!!state.sku.trim()&&alreadySaved(state.sku,seq,name);
+ // Do not overwrite digits mid-edit, and never silently replace a manually selected number.
+ if(document.activeElement!==$('seq'))$('seq').value=seq;
+ $('next').textContent='Next: '+(state.sku.trim()?name:'—');
+ $('last').textContent='Last saved: '+(state.last||'—');
+ $('takePhoto').disabled=blocked||capturing;
+ $('sequenceError').textContent=blocked?'This SKU and number or filename has already been saved. Choose another number.':'';
+}
+function skuChanged(value){state.sku=value.trim();revision++;persist();renderNext();renderProduct();clearTimeout(lookupTimer);lookupCounter(state.sku,revision)}
 // CAMERA — scanning runs only in its dialog; still photos use Android's camera picker.
 async function startCamera(target='sku'){
  if(starting||scannerClosing||scanner?.isScanning)return;scanTarget=target;starting=true;decoding=true;scanTime=0;armAudio();
@@ -190,7 +216,12 @@ async function jpegFromFile(file){
 function takePhoto(){
  if(!state.sku.trim()){toast('Enter or scan a SKU first.');$('sku').focus();return}
  if(capturing&&!draft)return;
- if(!draft){const now=new Date();photoMetadata={now,sku:state.sku,width:state.width,height:state.height};capturing=true}
+ if(!draft){
+  const now=new Date(),seq=counter(),name=filename(seq,now);
+  if(alreadySaved(state.sku,seq,name)){renderNext();toast('That SKU and number or filename has already been saved.');return}
+  if(state.mode==='shopify'&&!validateProduct(readProduct('p-')))return;
+  photoMetadata={now,sku:state.sku,seq,filename:name,mode:state.mode,...(state.mode==='shopify'?{product:{...currentProduct()}}:{width:state.width,height:state.height})};capturing=true;revision++;renderNext();
+ }
  $('photoInput').value='';$('photoInput').click();
 }
 async function receivedPhoto(){
@@ -198,10 +229,10 @@ async function receivedPhoto(){
  $('takePhoto').disabled=true;$('retakePhoto').disabled=true;$('savePhoto').disabled=true;
  try{
   const blob=await jpegFromFile(file);if(draftUrl)URL.revokeObjectURL(draftUrl);draftUrl=URL.createObjectURL(blob);
-  draft={blob,...photoMetadata,...uniqueNext(photoMetadata.now)};$('reviewImage').src=draftUrl;$('reviewName').textContent=draft.filename;$('reviewError').textContent='';
+  draft={blob,...photoMetadata};$('reviewImage').src=draftUrl;$('reviewName').textContent=draft.filename;$('reviewError').textContent='';
   if(!$('photoReview').open)$('photoReview').showModal();
  }catch(e){toast('Could not open photo: '+e.message);if(!draft)cancelPhoto()}
- finally{$('takePhoto').disabled=false;$('retakePhoto').disabled=false;$('savePhoto').disabled=false}
+ finally{renderNext();$('retakePhoto').disabled=false;$('savePhoto').disabled=false}
 }
 function cancelPhoto(){
  if($('photoReview').open)$('photoReview').close();
@@ -209,54 +240,81 @@ function cancelPhoto(){
 }
 function savePhoto(){
  if(!draft)return;
- // Background sheet indexing may discover a collision during review. Show the replacement before saving.
- if(used.has(draft.filename)){Object.assign(draft,uniqueNext(draft.now));$('reviewName').textContent=draft.filename;$('reviewError').textContent='That filename already exists. Review the updated name and tap Save again.';return}
- const row={action:'add',ts:draft.now.toISOString(),sku:draft.sku,seq:draft.seq,filename:draft.filename,width:draft.width,height:draft.height};
+ // Recheck after review because a background sheet request may reveal a saved row.
+ if(alreadySaved(draft.sku,draft.seq,draft.filename)){$('reviewError').textContent='That SKU and number or filename has already been saved. Cancel and choose another number.';return}
+ const row={action:'add',ts:draft.now.toISOString(),sku:draft.sku,seq:draft.seq,filename:draft.filename,mode:draft.mode||'standard',...(draft.mode==='shopify'?{product:draft.product,imageUrl:draft.filename}:{width:draft.width,height:draft.height})};
  const oldCounter=state.counters[row.sku],oldLast=state.last,id=crypto.randomUUID();
- used.add(row.filename);state.counters[row.sku]=row.seq+1;state.last=row.filename;state.queue.push({id,...row});
- if(!persist()){used.delete(row.filename);state.counters[row.sku]=oldCounter;state.last=oldLast;state.queue=state.queue.filter(r=>r.id!==id);$('reviewError').textContent='Could not save filename reservation. Free browser storage and retry.';return}
+ if(row.mode==='shopify')state.products[row.sku]={...row.product,locked:true};
+ rememberRow(row);state.counters[row.sku]=row.seq+1;state.last=row.filename;state.queue.push({id,...row});
+ if(!persist()){used.delete(row.filename);savedPairs.delete(pairKey(row.sku,row.seq));state.counters[row.sku]=oldCounter;state.last=oldLast;state.queue=state.queue.filter(r=>r.id!==id);$('reviewError').textContent='Could not save filename reservation. Free browser storage and retry.';return}
  revision++;
  const url=URL.createObjectURL(draft.blob),a=document.createElement('a');a.href=url;a.download=row.filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
  if(thumbnailUrl)URL.revokeObjectURL(thumbnailUrl);thumbnailUrl=URL.createObjectURL(draft.blob);$('thumbnail').src=thumbnailUrl;$('thumbnail').hidden=false;
  cancelPhoto();badge();toast('Saved: '+row.filename);void syncQueue();
 }
 // SHEET SYNC — simple text POST, ordered durable queue, no network work on shutter path.
-function endpoint(params={}){if(!state.url)throw new Error('Set Script URL and Token in Settings.');const url=new URL(state.url);url.searchParams.set('token',state.token);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,String(v)));return url}
+function endpoint(params={}){if(!state.url)throw new Error('Set Script URL and Token in Settings.');const url=new URL(state.url);url.searchParams.set('token',state.token);url.searchParams.set('mode',state.mode);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,String(v)));return url}
 async function request(params={},payload=null){
- const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),5000);
- try{const response=await fetch(endpoint(params),payload?{method:'POST',body:JSON.stringify({token:state.token,...payload}),signal:abort.signal,redirect:'follow'}:{signal:abort.signal,cache:'no-store',redirect:'follow'});if(!response.ok)throw new Error('Sheet HTTP '+response.status);const data=await response.json();if(!data.ok)throw new Error(data.error||'Sheet request rejected.');state.lastSync=Date.now();persist();badge();return data}finally{clearTimeout(timer)}
+ const mode=params.mode||payload?.mode||state.mode,abort=new AbortController(),timer=setTimeout(()=>abort.abort(),5000);
+ try{const response=await fetch(endpoint(params),payload?{method:'POST',body:JSON.stringify({token:state.token,...payload}),signal:abort.signal,redirect:'follow'}:{signal:abort.signal,cache:'no-store',redirect:'follow'});if(!response.ok)throw new Error('Sheet HTTP '+response.status);const data=await response.json();if(!data.ok)throw new Error(data.error||'Sheet request rejected.');if(mode==='shopify'&&data.apiVersion!==2)throw Error('Deploy the updated Apps Script before using Shopify mode.');state.lastSync=Date.now();persist();badge();return data}finally{clearTimeout(timer)}
 }
-async function lookupCounter(sku,version){if(!sku||!state.url||!navigator.onLine)return;const url=state.url;try{const data=await request({sku});const last=Number(data.lastSeq);if(state.sku===sku&&revision===version&&url===state.url&&!capturing&&Number.isFinite(last)&&last>=0){const pending=state.queue.filter(r=>r.action==='add'&&r.sku===sku).map(r=>Number(r.seq));state.counters[sku]=Math.max(last+1,...pending.map(n=>n+1),1);persist();renderNext()}void syncQueue()}catch{/* Local next remains usable when the sheet is unavailable. */}}
+async function lookupCounter(sku,version){if(!sku||!state.url||!navigator.onLine)return;const url=state.url;try{const mode=state.mode,data=await request({sku,mode});if(mode==='shopify'&&data.apiVersion!==2){$('shopifyStatus').textContent='Deploy the updated Apps Script before using Shopify sync.';return}const last=Number(data.lastSeq);if(state.sku===sku&&revision===version&&url===state.url&&mode===state.mode&&!capturing&&Number.isFinite(last)&&last>=0){const pending=state.queue.filter(r=>r.action==='add'&&r.sku===sku).map(r=>Number(r.seq));state.counters[sku]=Math.max(last+1,...pending.map(n=>n+1),1);if(mode==='shopify'&&data.product&&!hasPendingProduct(sku)){state.products[sku]={...data.product,locked:true};renderProduct()}persist();renderNext()}void syncQueue()}catch{/* Local next remains usable when the sheet is unavailable. */}}
 // Index every sheet filename, not just the most recent history page.
 let indexing=false;
-async function indexSheetNames(){if(indexing||!state.url||!navigator.onLine)return;indexing=true;const source=state.url;try{let offset=0;while(source===state.url){const data=await request({action:'list',limit:50,offset});if(!Array.isArray(data.items))break;data.items.forEach(r=>used.add(r.filename));persist();if(!capturing)renderNext();offset+=data.items.length;if(!data.items.length||offset>=Number(data.total))break}void syncQueue()}catch{/* Existing reservations remain authoritative offline. */}finally{indexing=false}}
-async function syncQueue(){if(syncing||!navigator.onLine||!state.url){badge();return}syncing=true;try{while(state.queue.length){const item=state.queue[0];const {id,...payload}=item;await request({},payload);state.queue=state.queue.filter(r=>r.id!==id);persist();badge()}}catch(e){message('Sheet sync pending: '+e.message)}finally{syncing=false;badge()}}
-function queueMutation(payload){state.queue.push({id:crypto.randomUUID(),...payload});persist();badge();void syncQueue()}
+async function indexSheetNames(){if(indexing||!state.url||!navigator.onLine)return;indexing=true;const source=state.url;try{for(const mode of ['standard','shopify']){let offset=0;while(source===state.url){const data=await request({mode,action:'list',limit:50,offset});if(!Array.isArray(data.items))break;data.items.forEach(rememberRow);persist();if(!capturing)renderNext();offset+=data.items.length;if(!data.items.length||offset>=Number(data.total))break}}void syncQueue()}catch{/* Existing reservations remain authoritative offline. */}finally{indexing=false}}
+async function syncQueue(){if(syncing||!navigator.onLine||!state.url){badge();return}syncing=true;let shopifyVerified=false;try{while(state.queue.length){const item=state.queue[0];const {id,...payload}=item;payload.mode ||= 'standard';if(payload.mode==='shopify'&&!shopifyVerified){const capabilities=await request({mode:'shopify',sku:payload.sku||''});if(capabilities.apiVersion!==2)throw Error('Deploy the updated Apps Script before syncing Shopify records.');shopifyVerified=true}const result=await request({mode:payload.mode},payload);if(payload.mode==='shopify'&&result.product){const existing=state.products[payload.sku]||{};state.products[payload.sku]={...existing,handle:result.product.handle,locked:true};if(state.sku===payload.sku)renderHandle()}state.queue=state.queue.filter(r=>r.id!==id);persist();badge()}}catch(e){message('Sheet sync pending: '+e.message)}finally{syncing=false;badge()}}
+function queueMutation(payload){state.queue.push({id:crypto.randomUUID(),mode:state.mode,...payload});persist();badge();void syncQueue()}
 // HISTORY PANEL — textContent for all sheet content.
 function openHistory(){ $('history').classList.add('open');$('history').inert=false;$('history').setAttribute('aria-hidden','false');$('historyHandle').setAttribute('aria-expanded','true');void loadHistory(true)}
 function closeHistory(){$('history').classList.remove('open');$('history').inert=true;$('history').setAttribute('aria-hidden','true');$('historyHandle').setAttribute('aria-expanded','false');$('historyHandle').focus()}
 function cachedHistory(){historyCached=true;historyItems=state.history.filter(r=>!$('search').value||[r.sku,r.filename].some(s=>String(s).toLowerCase().includes($('search').value.toLowerCase())));historyTotal=historyItems.length;historyOffset=historyTotal;renderHistory();$('historyStatus').textContent='Cached list · read-only. Open a row to queue a dimension change.';$('retryHistory').hidden=false;$('loadMore').hidden=true}
 async function loadHistory(reset=false){
- if(historyLoading&&!reset)return;const generation=++historyGeneration;if(reset){historyItems=[];historyOffset=0;historyTotal=0}historyLoading=true;historyCached=false;$('historyStatus').textContent='Loading…';$('retryHistory').hidden=true;$('loadMore').hidden=true;if(reset)renderHistory();
+ if(historyLoading&&!reset)return;const generation=++historyGeneration,mode=state.mode;if(reset){historyItems=[];historyOffset=0;historyTotal=0}historyLoading=true;historyCached=false;$('historyStatus').textContent='Loading…';$('retryHistory').hidden=true;$('loadMore').hidden=true;if(reset)renderHistory();
  if(!navigator.onLine){historyLoading=false;cachedHistory();return}
- try{const result=await request({action:'list',limit:50,offset:historyOffset,...($('search').value?{q:$('search').value}:{})});if(generation!==historyGeneration)return;if(!Array.isArray(result.items))throw new Error('Invalid history response');historyItems=reset?result.items:[...historyItems,...result.items];historyOffset+=result.items.length;historyTotal=Number(result.total)||0;result.items.forEach(r=>used.add(r.filename));
+ try{const result=await request({mode,action:'list',limit:50,offset:historyOffset,...($('search').value?{q:$('search').value}:{})});if(generation!==historyGeneration)return;if(!Array.isArray(result.items))throw new Error('Invalid history response');historyItems=reset?result.items:[...historyItems,...result.items];historyOffset+=result.items.length;historyTotal=Number(result.total)||0;result.items.forEach(rememberRow);
   // Cache only the current unfiltered, consecutively loaded list.
-  if(!$('search').value)state.history=historyItems;persist();renderNext();renderHistory();$('historyStatus').textContent=`${historyItems.length} of ${historyTotal} entries`;$('loadMore').hidden=historyOffset>=historyTotal||!result.items.length;void syncQueue();
+  if(!$('search').value){state.history=historyItems;state.historyByMode[state.mode]=historyItems}persist();renderNext();renderHistory();$('historyStatus').textContent=`${historyItems.length} of ${historyTotal} entries`;$('loadMore').hidden=historyOffset>=historyTotal||!result.items.length;void syncQueue();
  }catch(e){if(generation!==historyGeneration)return;cachedHistory();$('historyStatus').textContent=e.message+' · showing cached entries';$('retryHistory').hidden=false}finally{if(generation===historyGeneration)historyLoading=false}
 }
-function renderHistory(){const list=$('historyList');list.replaceChildren();for(const row of historyItems){const entry=document.createElement('article');entry.className='entry';const name=document.createElement('strong');name.textContent=row.filename;const detail=document.createElement('div');detail.className='small';const date=new Date(row.ts);detail.textContent=`${row.sku} · ${row.width??'—'} × ${row.height??'—'} in · ${isNaN(date)?row.ts:date.toLocaleString()}`;const button=document.createElement('button');button.textContent=historyCached?'View / queue edit':'Edit';button.onclick=()=>editRow(row);entry.append(name,detail,button);list.append(entry)}if(!historyItems.length&&!historyLoading){const p=document.createElement('p');p.textContent='No entries to show.';list.append(p)}}
-function editRow(row){editing=row;$('editIdentity').textContent=`SKU: ${row.sku}\nNumber: ${row.seq}\nFilename: ${row.filename}`;$('editWidth').value=row.width??'';$('editHeight').value=row.height??'';$('editError').textContent='';$('editNotice').textContent=historyCached||!navigator.onLine?'Cached record is read-only; changes will be queued until the sheet is reachable.':'Only dimensions can be changed.';$('deleteEntry').disabled=historyCached||!navigator.onLine;$('editDialog').showModal()}
-async function saveEdit(e){e.preventDefault();if(!editing)return;const payload={action:'update',filename:editing.filename,width:$('editWidth').value,height:$('editHeight').value};$('saveEdit').disabled=true;try{
+function renderHistory(){const list=$('historyList');list.replaceChildren();for(const row of historyItems){const entry=document.createElement('article');entry.className='entry';const name=document.createElement('strong');name.textContent=row.filename;const detail=document.createElement('div');detail.className='small';const date=new Date(row.ts);detail.textContent=`${row.sku} · ${state.mode==='shopify'?(row.title||'Untitled')+' · '+(row.handle||''):(row.width??'—')+' × '+(row.height??'—')+' in'} · ${isNaN(date)?row.ts:date.toLocaleString()}`;const button=document.createElement('button');button.textContent=historyCached?'View / queue edit':'Edit';button.onclick=()=>editRow(row);entry.append(name,detail,button);list.append(entry)}if(!historyItems.length&&!historyLoading){const p=document.createElement('p');p.textContent='No entries to show.';list.append(p)}}
+function editRow(row){editing={...row,mode:state.mode};$('editHeading').textContent=state.mode==='shopify'?'Edit product':'Edit dimensions';$('editDimensions').hidden=state.mode==='shopify';$('editProductFields').hidden=state.mode!=='shopify';if(state.mode==='shopify')fillProduct('e-',row);$('editIdentity').textContent=`SKU: ${row.sku}\nNumber: ${row.seq}\nFilename: ${row.filename}`;$('editWidth').value=row.width??'';$('editHeight').value=row.height??'';$('editError').textContent='';$('editNotice').textContent=historyCached||!navigator.onLine?'Cached record is read-only; changes will be queued until the sheet is reachable.':(state.mode==='shopify'?'Product changes apply to every image for this SKU.':'Only dimensions can be changed.');$('deleteEntry').disabled=historyCached||!navigator.onLine;$('editDialog').showModal()}
+async function saveEdit(e){e.preventDefault();if(!editing)return;const payload={action:'update',mode:editing.mode,sku:editing.sku,filename:editing.filename,...(editing.mode==='shopify'?{product:readProduct('e-')}:{width:$('editWidth').value,height:$('editHeight').value})};if(editing.mode==='shopify'&&!validateProduct(payload.product))return;$('saveEdit').disabled=true;try{
   if(!navigator.onLine||historyCached||state.queue.length){queueMutation(payload);toast('Dimension edit queued');$('editDialog').close();return}
   try{await request({},payload)}catch(error){queueMutation(payload);toast('Connection failed; dimension edit queued');$('editDialog').close();return}
-  Object.assign(editing,{width:payload.width,height:payload.height});state.history=state.history.map(r=>r.filename===payload.filename?{...r,width:payload.width,height:payload.height}:r);persist();renderHistory();$('editDialog').close();void syncQueue();
+  if(payload.mode==='shopify'){state.products[editing.sku]={...currentProduct(editing.sku),...payload.product,locked:true};historyItems=historyItems.map(r=>r.sku===editing.sku?{...r,...payload.product}:r);state.history=state.history.map(r=>r.sku===editing.sku?{...r,...payload.product}:r);renderProduct()}else{Object.assign(editing,{width:payload.width,height:payload.height});historyItems=historyItems.map(r=>r.filename===payload.filename?{...r,width:payload.width,height:payload.height}:r);state.history=state.history.map(r=>r.filename===payload.filename?{...r,width:payload.width,height:payload.height}:r)}state.historyByMode[state.mode]=state.history;persist();renderHistory();$('editDialog').close();void syncQueue();
  }finally{$('saveEdit').disabled=false}}
-async function deleteRow(){if(!editing||!confirm('Delete this sheet row? The downloaded photo will remain on your phone.'))return;const filename=editing.filename;$('deleteEntry').disabled=true;try{await request({},{action:'delete',filename});historyItems=historyItems.filter(r=>r.filename!==filename);state.history=state.history.filter(r=>r.filename!==filename);historyTotal=Math.max(0,historyTotal-1);historyOffset=Math.max(0,historyOffset-1);persist();renderHistory();$('editDialog').close();toast('Sheet row deleted');void syncQueue()}catch(e){$('editError').textContent=e.message+' · row was not confirmed deleted. Retry when online.'}finally{$('deleteEntry').disabled=false}}
+async function deleteRow(){if(!editing||!confirm('Delete this sheet row? The downloaded photo will remain on your phone.'))return;const filename=editing.filename;$('deleteEntry').disabled=true;try{await request({},{action:'delete',filename});historyItems=historyItems.filter(r=>r.filename!==filename);state.history=state.history.filter(r=>r.filename!==filename);state.historyByMode[state.mode]=state.history;historyTotal=Math.max(0,historyTotal-1);historyOffset=Math.max(0,historyOffset-1);persist();renderHistory();$('editDialog').close();toast('Sheet row deleted');void syncQueue()}catch(e){$('editError').textContent=e.message+' · row was not confirmed deleted. Retry when online.'}finally{$('deleteEntry').disabled=false}}
 function swipe(element,up,down){let y=null;element.addEventListener('pointerdown',e=>{y=e.clientY;element.setPointerCapture(e.pointerId)});element.addEventListener('pointerup',e=>{if(y===null)return;const delta=e.clientY-y;y=null;if(Math.abs(delta)>35){element.dataset.swiped='1';delta<0?up():down();setTimeout(()=>delete element.dataset.swiped,400)}});element.addEventListener('pointercancel',()=>y=null)}
+// SHOPIFY — one SKU is one simple product; names stand in for hosted image URLs.
+const PRODUCT_FIELDS=['title','description','price','vendor','type','tags','quantity','weight','status'];
+function currentProduct(sku=state.sku){return state.products[sku]||{title:'',description:'',price:'',vendor:'',type:'',tags:'',quantity:'1',weight:'',status:'draft',handle:'',locked:false}}
+function hasPendingProduct(sku){return state.queue.some(r=>r.mode==='shopify'&&r.sku===sku)}
+function slugTitle(title){return title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,180).replace(/-$/,'')||'product'}
+function localHandle(sku,title){const p=currentProduct(sku);if(p.locked&&p.handle)return p.handle;const base=slugTitle(title);let handle=base,n=2;while(Object.entries(state.products).some(([key,p])=>key!==sku&&p.handle===handle))handle=base+'-'+n++;return handle}
+function readProduct(prefix){const p={};for(const key of PRODUCT_FIELDS)p[key]=$(prefix+key).value.trim();return p}
+function fillProduct(prefix,p){for(const key of PRODUCT_FIELDS)$(prefix+key).value=p[key]??(key==='status'?'draft':key==='quantity'?'1':'')}
+function renderHandle(){$('productHandle').textContent=currentProduct().handle||'—'}
+function renderProduct(){fillProduct('p-',currentProduct());renderHandle()}
+function validateProduct(p){if(!state.sku.trim()){toast('Enter or scan a SKU first.');return false}if(!p.title){toast('Enter a product title.');return false}for(const key of ['price','quantity','weight'])if(p[key]!==''&&(!Number.isFinite(Number(p[key]))||Number(p[key])<0||(['quantity','weight'].includes(key)&&!Number.isInteger(Number(p[key]))))){toast('Enter a valid '+key+'.');return false}return true}
+function productInput(){if(!state.sku.trim())return;const p={...currentProduct(),...readProduct('p-')};p.handle=localHandle(state.sku,p.title);state.products[state.sku]=p;revision++;persist();renderHandle()}
+function renderMode(){$('mode').value=state.mode;$('standardFields').hidden=state.mode==='shopify';$('shopifyFields').hidden=state.mode!=='shopify';renderProduct()}
+function switchMode(mode){if(capturing)return;state.historyByMode[state.mode]=state.history;state.mode=mode;state.history=state.historyByMode[mode]||[];historyGeneration++;historyLoading=false;historyItems=[];$('search').value='';revision++;persist();renderMode();renderNext();lookupCounter(state.sku,revision);void indexSheetNames()}
+function saveProduct(){productInput();const p=currentProduct();if(!validateProduct(p))return;state.products[state.sku]={...p,locked:true};queueMutation({mode:'shopify',action:'product',sku:state.sku,product:{...p}});$('shopifyStatus').textContent='Product details saved locally; queued for the Shopify sheet.'}
+function downloadText(text,name){const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+async function exportShopify(){
+ $('exportShopify').disabled=true;
+ try{if(!navigator.onLine)throw Error('Connect to export the latest Shopify sheet.');if(!state.url)throw Error('Set your Apps Script URL and Token in Settings.');await syncQueue();if(state.queue.length||syncing)throw Error('Finish syncing pending changes before exporting.');const data=await request({action:'export',mode:'shopify'});if(typeof data.csv!=='string')throw Error('Deploy the updated Apps Script first.');downloadText(data.csv,'shopify-products-'+new Date().toISOString().slice(0,10)+'.csv');$('shopifyStatus').textContent=data.products+' products exported. Image URL cells contain filenames; replace with public URLs before importing images.'}catch(e){$('shopifyStatus').textContent=e.message}finally{$('exportShopify').disabled=false}
+}
+function csvHeader(text){let quoted=false,value='',fields=[];text=text.replace(/^\uFEFF/,'');for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){value+='"';i++}else quoted=!quoted}else if(c===','&&!quoted){fields.push(value);value=''}else if((c==='\n'||c==='\r')&&!quoted){fields.push(value);return fields}else value+=c}fields.push(value);return fields}
+async function uploadTemplate(){const file=$('templateInput').files[0];if(!file)return;try{await request({mode:'shopify'},{mode:'shopify',action:'template',headers:csvHeader(await file.text())});$('shopifyStatus').textContent='Official CSV template headers updated.'}catch(e){$('shopifyStatus').textContent=e.message}finally{$('templateInput').value=''}}
 // UI
+$('mode').onchange=e=>switchMode(e.target.value);
+for(const key of PRODUCT_FIELDS)$('p-'+key).addEventListener('input',productInput);
+$('saveProduct').onclick=saveProduct;$('exportShopify').onclick=exportShopify;
+$('uploadTemplate').onclick=()=>{$('templateInput').value='';$('templateInput').click()};$('templateInput').onchange=uploadTemplate;
 $('sku').value=state.sku;$('width').value=state.width;$('height').value=state.height;
 $('sku').addEventListener('input',e=>skuChanged(e.target.value));for(const field of ['width','height'])$(field).addEventListener('input',e=>{state[field]=e.target.value;persist();renderNext()});
-$('seq').onchange=e=>setCounter(e.target.value);$('minus').onclick=()=>setCounter(counter()-1);$('plus').onclick=()=>setCounter(counter()+1);
+$('seq').oninput=e=>{if(e.target.value!==''&&Number.isInteger(Number(e.target.value))&&Number(e.target.value)>=1)setCounter(e.target.value)};$('seq').onchange=e=>setCounter(e.target.value);$('minus').onclick=()=>setCounter(counter()-1);$('plus').onclick=()=>setCounter(counter()+1);
 $('scan').onclick=()=>startCamera('sku');$('historyScan').onclick=()=>startCamera('history');$('camera').addEventListener('pointerup',focusScanner);$('retryScan').onclick=async()=>{const target=scanTarget;await closeScanner();await startCamera(target)};$('closeScanner').onclick=closeScanner;$('scanDialog').addEventListener('cancel',e=>{e.preventDefault();void closeScanner()});
 $('takePhoto').onclick=takePhoto;$('photoInput').onchange=receivedPhoto;$('photoInput').addEventListener('cancel',()=>{if(!draft)cancelPhoto()});
 $('retakePhoto').onclick=takePhoto;$('savePhoto').onclick=savePhoto;$('cancelPhoto').onclick=cancelPhoto;$('photoReview').addEventListener('cancel',e=>{e.preventDefault();cancelPhoto()});
@@ -268,7 +326,7 @@ $('search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>lo
 $('editForm').onsubmit=saveEdit;$('deleteEntry').onclick=deleteRow;$('cancelEdit').onclick=()=>$('editDialog').close();
 window.addEventListener('online',()=>{badge();void syncQueue();lookupCounter(state.sku,revision);void indexSheetNames()});window.addEventListener('offline',()=>{badge();if($('history').classList.contains('open')){historyGeneration++;historyLoading=false;cachedHistory()}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('settings').open&&!$('editDialog').open)closeHistory()});
-renderNext();badge();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames();
+renderMode();renderNext();badge();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames();
 // Refresh time tokens without changing the frozen metadata of an in-flight capture.
 setInterval(()=>{if(!capturing)renderNext();badge()},1000);
 </script>

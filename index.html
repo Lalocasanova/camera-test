@@ -14,7 +14,6 @@ main{pointer-events:auto;overflow-y:auto;gap:16px;background:radial-gradient(ell
 .sku-counter{display:grid;grid-template-columns:minmax(0,1fr) 76px 46px 46px;gap:6px;align-items:end}
 .sku-counter input,.sku-counter button{height:48px;min-height:48px;margin-bottom:0}.sku-counter button{padding:0}.sku-counter #seq{width:100%}
 #next{text-align:center;overflow-wrap:anywhere;margin:14px 0}#scan{width:100%}#last{overflow-wrap:anywhere}
-#photoReview{width:min(96vw,560px)}#reviewImage{display:block;width:100%;height:54dvh;object-fit:contain;background:#08131b;border-radius:12px}#reviewName{overflow-wrap:anywhere;text-align:center}
 #scanDialog{width:min(96vw,540px)}#scanDialog #camera{position:relative;inset:auto;height:52dvh;width:100%;overflow:hidden;border-radius:12px}
 #scanDialog #camera video{height:100%!important;width:100%!important;object-fit:cover}
 #scanDialog #camera>div{display:block}#closeScanner{width:100%}.controls{margin-top:auto}
@@ -63,13 +62,13 @@ select,textarea{font:inherit;font-size:16px;color:white;background:#101c25;borde
   <div id="sequenceError" role="status"></div>
   <div id="standardFields" class="fields"><label>Width<input id="width" type="number" min="0" step="any" inputmode="decimal"></label><label>Height<input id="height" type="number" min="0" step="any" inputmode="decimal"></label></div>
   <section id="shopifyFields" hidden><h2>Simple product</h2><label>Product title<input id="p-title" autocomplete="off" placeholder="Product title"></label><div class="fields"><label>Price<input id="p-price" type="number" min="0" step="0.01" inputmode="decimal"></label><label>Quantity<input id="p-quantity" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Description<textarea id="p-description" rows="3"></textarea></label><div class="fields"><label>Vendor<input id="p-vendor"></label><label>Product type<input id="p-type"></label></div><label>Tags<input id="p-tags" placeholder="vintage, lighting"></label><div class="fields"><label>Weight (grams)<input id="p-weight" type="number" min="0" step="1" inputmode="numeric"></label><label>Status<select id="p-status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label></div><p class="small">Handle: <span id="productHandle">—</span></p><button id="saveProduct" type="button">Save product details</button><div class="row shopify-actions"><button id="exportShopify" type="button">Export Shopify CSV</button><button id="uploadTemplate" type="button">Update CSV template</button></div><p class="small">Image URL cells contain filenames for now. Replace them with public URLs before importing images. Quantity assumes a single Shopify location.</p><div id="shopifyStatus" role="status"></div></section>
+  <div id="photoSaveError" hidden><p id="photoSaveMessage" role="alert"></p><button id="retryPhotoSave">Retry save</button><button id="discardPhoto">Discard photo</button></div>
   <div id="message" role="status"></div>
  </section>
  <section class="controls"><div class="row"><img id="thumbnail" alt="Latest saved photo" hidden></div><button id="historyHandle" aria-expanded="false" aria-controls="history">History · swipe up</button></section>
 </main>
 <input id="templateInput" type="file" accept=".csv,text/csv" hidden>
 <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
-<dialog id="photoReview"><h2>Review photo</h2><img id="reviewImage" alt="Photo ready to save"><p id="reviewName" class="next"></p><p id="reviewError" role="alert"></p><div class="row"><button id="retakePhoto">Retake</button><button id="savePhoto" class="primary">Save</button><button id="cancelPhoto">Cancel</button></div></dialog>
 <dialog id="scanDialog" aria-label="Barcode scanner"><button id="closeScanner" type="button" aria-label="Close scanner">×</button><div id="camera"></div><p id="scanStatus" role="status"></p><button id="retryScan" hidden>Retry scanner</button></dialog>
 <div id="toast" hidden role="status"></div>
 <section id="history" aria-label="Sheet history" aria-hidden="true" inert>
@@ -77,7 +76,7 @@ select,textarea{font:inherit;font-size:16px;color:white;background:#101c25;borde
  <header><label for="search">Search SKU or filename</label><div class="history-search-wrap"><input id="search" type="search" placeholder="Search sheet history"><button id="historyScan" type="button" aria-label="Scan to search history">Scan</button></div><div id="historyStatus" class="small" role="status"></div></header>
  <div id="historyList"></div><div id="historyFooter" class="row"><button id="retryHistory" hidden>Retry</button><button id="loadMore" hidden>Load more</button><button id="refreshHistory">Refresh</button></div>
 </section>
-<dialog id="settings"><h2>Settings</h2><form id="settingsForm"><label>Filename template<input id="template" required></label><p class="small">Tokens: {sku}, {seq}, {seq:02}, {w}, {h}, {date}, {time}. Date: YYYYMMDD; time: HHmmss. Dimensions never change names unless included here. Use a sequence token for predictable numbering.</p><label>Apps Script web app URL<input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label><label>Token<input id="token" type="password" autocomplete="off"></label><p class="small">Credentials, counters and pending rows stay in this browser. Keep this tab open for offline capture; loading the app offline is not guaranteed. Downloads are controlled by Chrome settings.</p><div class="row"><button type="submit">Save settings</button><button type="button" id="cancelSettings">Cancel</button></div></form></dialog>
+<dialog id="settings"><h2>Settings</h2><form id="settingsForm"><label>Filename template<input id="template" required></label><p class="small">Tokens: {sku}, {seq}, {seq:02}, {w}, {h}, {date}, {time}. Date: YYYYMMDD; time: HHmmss. Dimensions never change names unless included here. If the template omits {seq} or {seq:02}, a sequence suffix such as _03 is added automatically.</p><label>Apps Script web app URL<input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label><label>Token<input id="token" type="password" autocomplete="off"></label><p class="small">Credentials, counters and pending rows stay in this browser. Keep this tab open for offline capture; loading the app offline is not guaranteed. Downloads are controlled by Chrome settings.</p><div class="row"><button type="submit">Save settings</button><button type="button" id="cancelSettings">Cancel</button></div></form></dialog>
 <dialog id="editDialog"><h2 id="editHeading">Edit dimensions</h2><div id="editIdentity" class="readonly"></div><p id="editNotice" class="small"></p><form id="editForm"><div id="editDimensions" class="fields"><label>Width<input id="editWidth" type="number" min="0" step="any"></label><label>Height<input id="editHeight" type="number" min="0" step="any"></label></div><div id="editProductFields" hidden><label>Product title<input id="e-title" autocomplete="off" placeholder="Product title"></label><div class="fields"><label>Price<input id="e-price" type="number" min="0" step="0.01" inputmode="decimal"></label><label>Quantity<input id="e-quantity" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Description<textarea id="e-description" rows="3"></textarea></label><div class="fields"><label>Vendor<input id="e-vendor"></label><label>Product type<input id="e-type"></label></div><label>Tags<input id="e-tags" placeholder="vintage, lighting"></label><div class="fields"><label>Weight (grams)<input id="e-weight" type="number" min="0" step="1" inputmode="numeric"></label><label>Status<select id="e-status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label></div></div><p id="editError" role="alert"></p><div class="row"><button id="saveEdit" type="submit">Save</button><button id="deleteEntry" type="button">Delete</button><button id="cancelEdit" type="button">Close</button></div></form></dialog>
 <!-- One pinned scanner dependency; manual entry and camera fallback survive a CDN failure. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" onerror="window.scannerLoadFailed=true"></script>
@@ -89,7 +88,7 @@ const defaults={template:'{sku}_{seq:02}',url:'',token:'',sku:'',width:'',height
 // STATE — never discard filename reservations, including after sheet deletion.
 let state;try{state={...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{state={...defaults}}
 state.historyByMode.standard ||= state.history;
-let used=new Set(state.used),savedPairs=new Set(state.savedPairs),scanner,decoding=false,capturing=false,starting=false,scanTime=0,audioContext,thumbnailUrl,draft=null,draftUrl=null,photoMetadata=null,scannerClosing=null,scannerWatchdog=null,focusBusy=false;
+let used=new Set(state.used),savedPairs=new Set(state.savedPairs),scanner,decoding=false,capturing=false,starting=false,scanTime=0,audioContext,thumbnailUrl,draft=null,photoMetadata=null,scannerClosing=null,scannerWatchdog=null,focusBusy=false;
 let revision=0,syncing=false,historyItems=[],historyOffset=0,historyTotal=0,historyGeneration=0,historyLoading=false,historyCached=false,editing=null,searchTimer,lookupTimer,scanTarget='sku';
 function persist(){state.used=[...used];state.savedPairs=[...savedPairs];try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch{message('Browser storage is full or unavailable. Free storage before saving photos.');return false}}
 function message(s){$('message').textContent=s}
@@ -113,8 +112,12 @@ function filename(n,now=new Date()){
  const pad=v=>String(v).padStart(2,'0'),date=now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate()),time=pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds());
  let name=state.template.replace(/\{(sku|seq(?::02)?|w|h|date|time)\}/g,(_,t)=>({sku:state.sku,seq:n,'seq:02':String(n).padStart(2,'0'),w:state.mode==='shopify'?'':state.width,h:state.mode==='shopify'?'':state.height,date,time}[t]));
  name=safeName(name.replace(/\.jpe?g$/i,''))||'photo';if(/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name))name='_'+name;
- // Leave room for a disambiguating number and extension on common filesystems.
- return Array.from(name).slice(0,140).join('')+'.jpg';
+ // The sequence control must always affect the filename, even for older saved
+ // templates such as {sku}. Keep the number when shortening an oversized name.
+ const suffix='_'+String(n).padStart(2,'0');
+ if(!/\{seq(?::02)?\}/.test(state.template))name+=suffix;
+ if(Array.from(name).length>140)name=Array.from(name).slice(0,120).join('')+suffix;
+ return name+'.jpg';
 }
 function uniqueNext(now=new Date()){
  let n=counter(),name=filename(n,now);
@@ -207,7 +210,7 @@ function onScan(text){
  if(scanTarget==='history'){clearTimeout(searchTimer);$('search').value=text;void loadHistory(true);toast('Searching history: '+text)}
  else{$('sku').value=text;skuChanged(text);toast('SKU scanned')}
 }
-// CAPTURE — review first; only Save reserves the name, downloads and advances the counter.
+// CAPTURE — native camera confirmation saves directly; reserve names before downloading.
 function canvasJPEG(source,w,h){const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(source,0,0,w,h);return new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('JPEG conversion failed.')),'image/jpeg',1))}
 async function jpegFromFile(file){
  if(file.type==='image/jpeg')return file;
@@ -225,28 +228,28 @@ function takePhoto(){
  $('photoInput').value='';$('photoInput').click();
 }
 async function receivedPhoto(){
- const file=$('photoInput').files[0];if(!file){if(!draft)cancelPhoto();return}
- $('takePhoto').disabled=true;$('retakePhoto').disabled=true;$('savePhoto').disabled=true;
- try{
-  const blob=await jpegFromFile(file);if(draftUrl)URL.revokeObjectURL(draftUrl);draftUrl=URL.createObjectURL(blob);
-  draft={blob,...photoMetadata};$('reviewImage').src=draftUrl;$('reviewName').textContent=draft.filename;$('reviewError').textContent='';
-  if(!$('photoReview').open)$('photoReview').showModal();
- }catch(e){toast('Could not open photo: '+e.message);if(!draft)cancelPhoto()}
- finally{renderNext();$('retakePhoto').disabled=false;$('savePhoto').disabled=false}
+ const file=$('photoInput').files[0];if(!file){cancelPhoto();return}
+ if(!photoMetadata)return;
+ $('takePhoto').disabled=true;
+ try{const blob=await jpegFromFile(file);draft={blob,...photoMetadata};trySavePhoto()}
+ catch(e){message('Could not open photo: '+e.message);cancelPhoto()}
+ finally{renderNext()}
 }
 function cancelPhoto(){
- if($('photoReview').open)$('photoReview').close();
- if(draftUrl)URL.revokeObjectURL(draftUrl);draftUrl=null;draft=null;photoMetadata=null;capturing=false;$('photoInput').value='';$('reviewImage').removeAttribute('src');renderNext();
+ draft=null;photoMetadata=null;capturing=false;$('photoInput').value='';$('photoSaveError').hidden=true;renderNext();
+}
+function trySavePhoto(){
+ try{savePhoto()}catch(e){$('photoSaveMessage').textContent=e.message;$('photoSaveError').hidden=false;message('Photo has not been saved.');}
 }
 function savePhoto(){
  if(!draft)return;
- // Recheck after review because a background sheet request may reveal a saved row.
- if(alreadySaved(draft.sku,draft.seq,draft.filename)){$('reviewError').textContent='That SKU and number or filename has already been saved. Cancel and choose another number.';return}
+ // Recheck after the native camera returns; do not overwrite a reserved filename.
+ if(alreadySaved(draft.sku,draft.seq,draft.filename))throw Error('That SKU and number or filename has already been saved. Discard this photo and choose another number.');
  const row={action:'add',ts:draft.now.toISOString(),sku:draft.sku,seq:draft.seq,filename:draft.filename,mode:draft.mode||'standard',...(draft.mode==='shopify'?{product:draft.product,imageUrl:draft.filename}:{width:draft.width,height:draft.height})};
  const oldCounter=state.counters[row.sku],oldLast=state.last,id=crypto.randomUUID();
  if(row.mode==='shopify')state.products[row.sku]={...row.product,locked:true};
  rememberRow(row);state.counters[row.sku]=row.seq+1;state.last=row.filename;state.queue.push({id,...row});
- if(!persist()){used.delete(row.filename);savedPairs.delete(pairKey(row.sku,row.seq));state.counters[row.sku]=oldCounter;state.last=oldLast;state.queue=state.queue.filter(r=>r.id!==id);$('reviewError').textContent='Could not save filename reservation. Free browser storage and retry.';return}
+ if(!persist()){used.delete(row.filename);savedPairs.delete(pairKey(row.sku,row.seq));state.counters[row.sku]=oldCounter;state.last=oldLast;state.queue=state.queue.filter(r=>r.id!==id);throw Error('Could not save filename reservation. Free browser storage and retry.')}
  revision++;
  const url=URL.createObjectURL(draft.blob),a=document.createElement('a');a.href=url;a.download=row.filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
  if(thumbnailUrl)URL.revokeObjectURL(thumbnailUrl);thumbnailUrl=URL.createObjectURL(draft.blob);$('thumbnail').src=thumbnailUrl;$('thumbnail').hidden=false;
@@ -317,7 +320,7 @@ $('sku').addEventListener('input',e=>skuChanged(e.target.value));for(const field
 $('seq').oninput=e=>{if(e.target.value!==''&&Number.isInteger(Number(e.target.value))&&Number(e.target.value)>=1)setCounter(e.target.value)};$('seq').onchange=e=>setCounter(e.target.value);$('minus').onclick=()=>setCounter(counter()-1);$('plus').onclick=()=>setCounter(counter()+1);
 $('scan').onclick=()=>startCamera('sku');$('historyScan').onclick=()=>startCamera('history');$('camera').addEventListener('pointerup',focusScanner);$('retryScan').onclick=async()=>{const target=scanTarget;await closeScanner();await startCamera(target)};$('closeScanner').onclick=closeScanner;$('scanDialog').addEventListener('cancel',e=>{e.preventDefault();void closeScanner()});
 $('takePhoto').onclick=takePhoto;$('photoInput').onchange=receivedPhoto;$('photoInput').addEventListener('cancel',()=>{if(!draft)cancelPhoto()});
-$('retakePhoto').onclick=takePhoto;$('savePhoto').onclick=savePhoto;$('cancelPhoto').onclick=cancelPhoto;$('photoReview').addEventListener('cancel',e=>{e.preventDefault();cancelPhoto()});
+$('retryPhotoSave').onclick=trySavePhoto;$('discardPhoto').onclick=cancelPhoto;
 $('syncNow').onclick=async()=>{if(!state.url){$('settingsButton').click();return}await syncQueue();lookupCounter(state.sku,revision);void indexSheetNames()};
 $('settingsButton').onclick=()=>{$('template').value=state.template;$('scriptUrl').value=state.url;$('token').value=state.token;$('settings').showModal()};$('cancelSettings').onclick=()=>$('settings').close();
 $('settingsForm').onsubmit=e=>{e.preventDefault();state.template=$('template').value.trim()||defaults.template;state.url=$('scriptUrl').value.trim();state.token=$('token').value;revision++;persist();renderNext();badge();$('settings').close();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames()};

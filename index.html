@@ -33,6 +33,14 @@ main{pointer-events:auto;overflow-y:auto;gap:16px;background:radial-gradient(ell
 #history header,#historyFooter{flex-shrink:0}
 .history-search-wrap{position:relative;margin-top:4px}.history-search-wrap #search{margin-top:0;padding-right:76px}
 #historyScan{position:absolute;right:4px;top:4px;width:64px;min-height:38px;height:38px;padding:0;border-radius:7px;font-size:12px;background:#31584e}
+
+/* Full-screen scanner; camera controls stay above the preview. */
+#scanDialog{inset:0;margin:0;width:100%;max-width:none;height:100%;height:100dvh;max-height:none;padding:0;border:0;border-radius:0;background:#000;overflow:hidden}
+#scanDialog #camera{position:absolute;inset:0;width:100%;height:100%;border-radius:0}
+#closeScanner{position:absolute;z-index:3;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:48px;height:48px;min-height:48px;border-radius:50%;padding:0;font-size:32px;line-height:1;background:#101820cc}
+#scanStatus{position:absolute;z-index:2;left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));margin:0;padding:10px 12px;background:#101820dd;border-radius:10px;font-size:13px}
+#scanStatus:empty{display:none}
+#retryScan{position:absolute;z-index:2;left:16px;bottom:calc(16px + env(safe-area-inset-bottom));width:calc(100% - 32px);margin:0;background:#243642e6}
 </style>
 </head>
 <body>
@@ -50,7 +58,7 @@ main{pointer-events:auto;overflow-y:auto;gap:16px;background:radial-gradient(ell
 </main>
 <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
 <dialog id="photoReview"><h2>Review photo</h2><img id="reviewImage" alt="Photo ready to save"><p id="reviewName" class="next"></p><p id="reviewError" role="alert"></p><div class="row"><button id="retakePhoto">Retake</button><button id="savePhoto" class="primary">Save</button><button id="cancelPhoto">Cancel</button></div></dialog>
-<dialog id="scanDialog"><h2>Scan SKU</h2><div id="camera"></div><p id="scanStatus" role="status"></p><button id="retryScan" hidden>Retry scanner</button><button id="closeScanner">Close scanner</button></dialog>
+<dialog id="scanDialog" aria-label="Barcode scanner"><button id="closeScanner" type="button" aria-label="Close scanner">×</button><div id="camera"></div><p id="scanStatus" role="status"></p><button id="retryScan" hidden>Retry scanner</button></dialog>
 <div id="toast" hidden role="status"></div>
 <section id="history" aria-label="Sheet history" aria-hidden="true" inert>
  <button id="closeHistory" class="handle">History · swipe down to close</button>
@@ -114,9 +122,9 @@ async function startCamera(target='sku'){
   await scanner.start({facingMode:'environment'},{fps:8,videoConstraints:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}},text=>{if(decoding&&!starting)onScan(text)},()=>{});
   if(!$('scanDialog').open){await stopScannerStream();return}
   const track=scannerTrack(),caps=track?.getCapabilities?.()||{};
-  if(caps.focusMode?.includes('continuous')){try{await track.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch{}}
+  if(caps.focusMode?.includes('continuous')){try{await track.applyConstraints({...track.getConstraints?.(),advanced:[{focusMode:'continuous'}]})}catch{}}
   if(!$('scanDialog').open){await stopScannerStream();return}
-  $('scanStatus').textContent='Keep the whole code visible, with some space around it. Tap the preview to focus.';
+  $('scanStatus').textContent='';
   watchScanner();
  }catch(e){decoding=false;await stopScannerStream();$('retryScan').hidden=false;$('scanStatus').textContent=e.name==='NotAllowedError'?'Camera permission denied. Allow Camera in Chrome site settings.':e.name==='NotFoundError'?'No camera found. Type the SKU instead.':(e.message||String(e))}
  finally{starting=false;$('scan').disabled=false}
@@ -153,9 +161,9 @@ async function focusScanner(event){
    const width=video.videoWidth*scale,height=video.videoHeight*scale;
    constraints.pointsOfInterest=[{x:Math.max(0,Math.min(1,(event.clientX-r.left-(r.width-width)/2)/width)),y:Math.max(0,Math.min(1,(event.clientY-r.top-(r.height-height)/2)/height))}];
   }
-  if(!Object.keys(constraints).length){$('scanStatus').textContent='This camera does not expose focus controls. Try moving slightly farther from the code.';return}
-  await track.applyConstraints({advanced:[constraints]});
-  $('scanStatus').textContent=constraints.pointsOfInterest?'Focus requested at your tap. Hold the code steady.':'Autofocus requested. This camera does not expose a focus point.';
+  if(!Object.keys(constraints).length){$('scanStatus').textContent='Focus control is unavailable in Chrome for this camera.';return}
+  await track.applyConstraints({...track.getConstraints?.(),advanced:[constraints]});
+  $('scanStatus').textContent=constraints.pointsOfInterest?'Focus requested.':'Autofocus requested.';
  }catch{$('scanStatus').textContent='Could not adjust focus. Move slightly farther away and improve the lighting.'}
  finally{focusBusy=false}
 }

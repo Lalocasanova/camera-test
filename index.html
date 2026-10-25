@@ -116,7 +116,12 @@ async function startCamera(target='sku'){
   if(!window.Html5Qrcode)throw new Error('Scanner library failed to load. Close this panel and type the SKU.');
   if(!isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('Camera requires HTTPS and camera permission.');
   const F=Html5QrcodeSupportedFormats;
-  scanner=new Html5Qrcode('camera',{formatsToSupport:[F.CODE_128,F.CODE_39,F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.QR_CODE,F.DATA_MATRIX],useBarCodeDetectorIfSupported:false,verbose:false});
+  const scannerConfig={formatsToSupport:[F.CODE_128,F.CODE_39,F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.QR_CODE,F.DATA_MATRIX],verbose:false};
+  // In 2.3.8, enabling native detection tries BarcodeDetector first, then alternates
+  // live frames with ZXing. Browsers without BarcodeDetector use ZXing alone.
+  // Some devices expose the API but reject construction; recover before opening the camera.
+  try{scanner=new Html5Qrcode('camera',{...scannerConfig,useBarCodeDetectorIfSupported:true})}
+  catch{scanner=new Html5Qrcode('camera',{...scannerConfig,useBarCodeDetectorIfSupported:false})}
   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
   if(!$('scanDialog').open)return;
   await scanner.start({facingMode:'environment'},{fps:8,videoConstraints:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}},text=>{if(decoding&&!starting)onScan(text)},()=>{});

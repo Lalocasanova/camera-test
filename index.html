@@ -67,19 +67,28 @@ main>.panel,main>.controls{border:0;border-radius:0;box-shadow:none;background:t
 .entry{padding:22px 0}.entry strong{font-size:16px;line-height:1.5}.entry .small{margin-top:12px;line-height:1.8}
 .history-actions{display:flex;gap:12px;margin-top:16px}.history-actions button{min-width:96px;min-height:48px}
 .danger{color:#ffd0ca;border-color:#91554f;background:#432a2c}
+#imageCheckList{padding-left:20px;max-height:45dvh;overflow:auto;overflow-wrap:anywhere}#imageCheckList li{margin:12px 0;line-height:1.5}#imageCheckDialog .row{flex-wrap:wrap;gap:12px}#toast{z-index:20}
+
+.photo-strip{display:flex;gap:12px;overflow-x:auto;padding:10px 0;overscroll-behavior:contain}
+.staged-tile{position:relative;flex:0 0 92px}.staged-tile img{width:92px;height:92px;object-fit:cover;border-radius:10px}.staged-tile button{position:absolute;top:0;right:0;width:36px;min-height:36px;padding:0;background:#101820dc}
+.staged-tile small{display:block;font-size:11px;overflow-wrap:anywhere}
+#unsavedSection{margin-top:20px}#unsavedSection h2{font-size:16px}.unsaved-item,.upload-problem{padding:14px 0;border-bottom:1px solid #344955;overflow-wrap:anywhere}.unsaved-item .row,.upload-problem .row{margin-top:10px;flex-wrap:wrap}
+#uploadStatus{color:#ffda9f;font-size:13px}.download-option{display:flex!important;align-items:center;gap:10px}.download-option input{width:22px;min-height:24px;margin:0!important}
+#stagedSection[hidden],#unsavedSection[hidden]{display:none}
 </style>
 </head>
 <body>
 <main id="mainScreen">
  <section class="panel">
-  <div class="row toolbar"><strong>Inventory Camera</strong><button id="syncNow"><span id="syncTitle">Sync now</span><small id="syncAge">Never synced</small></button><button id="settingsButton" aria-label="Open settings">⚙</button></div>
+  <div class="row toolbar"><strong>Inventory Camera</strong><button id="syncNow"><span id="syncTitle">Sync now</span><small id="syncAge">Never synced</small><small id="uploadBadge">Loading photo storage…</small></button><button id="settingsButton" aria-label="Open settings">⚙</button></div>
   <button id="takePhoto" class="primary">Take photo</button>
   <div class="sku-counter"><label>SKU<div class="sku-input-wrap"><input id="sku" autocomplete="off" placeholder="Scan or type SKU"><button id="scan" type="button" aria-label="Scan SKU">Scan</button></div></label><label>Next number<input id="seq" type="number" min="1" step="1" inputmode="numeric" value="1"></label><button id="plus" aria-label="Increase number">+</button><button id="minus" aria-label="Decrease number">−</button></div>
   <div id="next" class="next" aria-live="polite">Next: —</div>
   <div id="last" class="small">Last saved: —</div>
   <div id="sequenceError" role="status"></div>
   <div id="standardFields" class="fields"><label>Width<input id="width" type="number" min="0" step="any" inputmode="decimal"></label><label>Height<input id="height" type="number" min="0" step="any" inputmode="decimal"></label></div>
-  <section id="shopifyFields" hidden><div class="product-heading"><h2>Simple product</h2><button id="saveProduct" type="button" aria-label="Save product and start next product" title="Save and next">✓</button></div><label>Product title<input id="p-title" autocomplete="off" placeholder="Product title"></label><div class="fields"><label>Price<input id="p-price" type="number" min="0" step="0.01" inputmode="decimal"></label><label>Quantity<input id="p-quantity" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Description<textarea id="p-description" rows="3"></textarea></label><div class="fields"><label>Vendor<input id="p-vendor"></label><label>Product type<input id="p-type"></label></div><label>Tags<input id="p-tags" placeholder="vintage, lighting"></label><div class="fields"><label>Weight (grams)<input id="p-weight" type="number" min="0" step="1" inputmode="numeric"></label><label>Status<select id="p-status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label></div><p class="small">Handle: <span id="productHandle">—</span></p><div class="row shopify-actions"><button id="exportShopify" type="button">Export Shopify CSV</button><button id="uploadTemplate" type="button">Update CSV template</button></div><p class="small">Image URL cells contain filenames for now. Replace them with public URLs before importing images. Quantity assumes a single Shopify location.</p><div id="shopifyStatus" role="status"></div></section>
+  <section id="stagedSection" hidden><p id="stagedCount" class="small"></p><div id="stagedPhotos" class="photo-strip"></div></section><section id="unsavedSection" hidden><h2>Unsaved items</h2><div id="unsavedItems"></div></section>
+  <section id="shopifyFields" hidden><div class="product-heading"><h2>Simple product</h2><button id="saveProduct" type="button" aria-label="Save product and start next product" title="Save and next">✓</button></div><label>Product title<input id="p-title" autocomplete="off" placeholder="Product title"></label><div class="fields"><label>Price<input id="p-price" type="number" min="0" step="0.01" inputmode="decimal"></label><label>Quantity<input id="p-quantity" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Description<textarea id="p-description" rows="3"></textarea></label><div class="fields"><label>Vendor<input id="p-vendor"></label><label>Product type<input id="p-type"></label></div><label>Tags<input id="p-tags" placeholder="vintage, lighting"></label><div class="fields"><label>Weight (grams)<input id="p-weight" type="number" min="0" step="1" inputmode="numeric"></label><label>Status<select id="p-status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label></div><p class="small">Handle: <span id="productHandle">—</span></p><div class="row shopify-actions"><button id="exportShopify" type="button">Export Shopify CSV</button><button id="uploadTemplate" type="button">Update CSV template</button></div><p class="small">The sheet’s imageUrl column is the image source. Upload photos with their exact filenames, or edit their URLs directly in Google Sheets. Quantity assumes a single Shopify location.</p><div id="shopifyStatus" role="status"></div></section>
   <div id="photoSaveError" hidden><p id="photoSaveMessage" role="alert"></p><button id="retryPhotoSave">Retry save</button><button id="discardPhoto">Discard photo</button></div>
   <div id="message" role="status"></div>
  </section>
@@ -88,13 +97,14 @@ main>.panel,main>.controls{border:0;border-radius:0;box-shadow:none;background:t
 <input id="templateInput" type="file" accept=".csv,text/csv" hidden>
 <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
 <dialog id="scanDialog" aria-label="Barcode scanner"><button id="closeScanner" type="button" aria-label="Close scanner">×</button><div id="camera"></div><p id="scanStatus" role="status"></p><button id="retryScan" hidden>Retry scanner</button></dialog>
+<dialog id="imageCheckDialog"><h2>Image link check</h2><p id="imageCheckSummary"></p><ul id="imageCheckList"></ul><div class="row"><button id="downloadAnyway">Download CSV anyway</button><button id="cancelImageExport">Cancel</button></div></dialog>
 <div id="toast" hidden role="status"></div>
 <section id="history" aria-label="Sheet history" aria-hidden="true" inert>
  <button id="closeHistory" class="handle">History · swipe down to close</button>
  <header><label for="search">Search SKU or filename</label><div class="history-search-wrap"><input id="search" type="search" placeholder="Search sheet history"><button id="historyScan" type="button" aria-label="Scan to search history">Scan</button></div><div id="historyStatus" class="small" role="status"></div></header>
  <div id="historyList"></div><div id="historyFooter" class="row"><button id="retryHistory" hidden>Retry</button><button id="loadMore" hidden>Load more</button><button id="refreshHistory">Refresh</button></div>
 </section>
-<section id="settings" aria-label="Settings" hidden><h2>Settings</h2><form id="settingsForm"><label class="mode-label">Template<select id="mode"><option value="standard">Standard</option><option value="shopify">Shopify</option></select></label><label>Filename template<input id="template" required></label><p class="small">Tokens: {sku}, {seq}, {seq:02}, {w}, {h}, {date}, {time}. Date: YYYYMMDD; time: HHmmss. Dimensions never change names unless included here. If the template omits {seq} or {seq:02}, a sequence suffix such as _03 is added automatically.</p><label>Apps Script web app URL<input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label><label>Token<input id="token" type="password" autocomplete="off"></label><p class="small">Credentials, counters and pending rows stay in this browser. Keep this tab open for offline capture; loading the app offline is not guaranteed. Downloads are controlled by Chrome settings.</p><div class="row"><button type="submit">Save settings</button><button type="button" id="cancelSettings">Cancel</button></div></form></section>
+<section id="settings" aria-label="Settings" hidden><h2>Settings</h2><form id="settingsForm"><label class="mode-label">Template<select id="mode"><option value="standard">Standard</option><option value="shopify">Shopify</option></select></label><label>Filename template<input id="template" required></label><p class="small">Tokens: {sku}, {seq}, {seq:02}, {w}, {h}, {date}, {time}. Date: YYYYMMDD; time: HHmmss. Dimensions never change names unless included here. If the template omits {seq} or {seq:02}, a sequence suffix such as _03 is added automatically.</p><label>Maximum photo edge (pixels)<input id="photoMaxEdge" type="number" min="320" max="6000" step="1" inputmode="numeric" required></label><label>Photo aspect ratio<select id="photoAspect"><option value="square">Square (1:1)</option><option value="original">Original camera ratio</option><option value="landscape">Landscape (4:3)</option><option value="portrait">Portrait (3:4)</option></select></label><p class="small">Photos are resized and compressed before downloading. White padding preserves the entire photo when changing its ratio. Smaller photos are not enlarged.</p><label>Apps Script web app URL<input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label><label>Token<input id="token" type="password" autocomplete="off"></label><label>Upload Worker URL<input id="workerUrl" type="url" placeholder="https://inventory-upload.product-analyzer.workers.dev"></label><label>Upload token<input id="uploadToken" type="password" autocomplete="off"></label><label>JPEG quality (0.5–1)<input id="jpegQuality" type="number" min="0.5" max="1" step="0.01" required></label><label class="download-option"><input id="downloadCopy" type="checkbox"> Also download a copy to this phone</label><p class="small">Shopify photos stay on this phone until you tap ✓. Standard photos upload immediately. Keep this page open for uploads to finish.</p><section id="uploadProblems"><h2>Upload problems</h2><p id="uploadStatus" role="status"></p><div id="failedUploads"></div></section><label>Image host base URL<input id="imageBase" type="url" placeholder="https://images.lalocasanova.com"></label><p class="small">New photos use base URL + / + filename in the Shopify sheet. Leave blank to save filenames only. Existing imageUrl cells remain editable in Google Sheets and are never rebuilt during export.</p><p class="small">Credentials, counters and pending rows stay in this browser. Keep this tab open for offline capture; loading the app offline is not guaranteed. Downloads are controlled by Chrome settings.</p><div class="row"><button type="submit">Save settings</button><button type="button" id="cancelSettings">Cancel</button></div></form></section>
 <dialog id="editDialog"><h2 id="editHeading">Edit dimensions</h2><div id="editIdentity" class="readonly"></div><p id="editNotice" class="small"></p><form id="editForm"><div id="editDimensions" class="fields"><label>Width<input id="editWidth" type="number" min="0" step="any"></label><label>Height<input id="editHeight" type="number" min="0" step="any"></label></div><div id="editProductFields" hidden><label>Product title<input id="e-title" autocomplete="off" placeholder="Product title"></label><div class="fields"><label>Price<input id="e-price" type="number" min="0" step="0.01" inputmode="decimal"></label><label>Quantity<input id="e-quantity" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Description<textarea id="e-description" rows="3"></textarea></label><div class="fields"><label>Vendor<input id="e-vendor"></label><label>Product type<input id="e-type"></label></div><label>Tags<input id="e-tags" placeholder="vintage, lighting"></label><div class="fields"><label>Weight (grams)<input id="e-weight" type="number" min="0" step="1" inputmode="numeric"></label><label>Status<select id="e-status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label></div></div><p id="editError" role="alert"></p><div class="row"><button id="saveEdit" type="submit">Save</button><button id="deleteEntry" type="button">Delete</button><button id="cancelEdit" type="button">Close</button></div></form></dialog>
 <!-- One pinned scanner dependency; manual entry and camera fallback survive a CDN failure. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" onerror="window.scannerLoadFailed=true"></script>
@@ -102,12 +112,12 @@ main>.panel,main>.controls{border:0;border-radius:0;box-shadow:none;background:t
 'use strict';
 // CONFIG
 const KEY='inventory-camera-v1', $=id=>document.getElementById(id);
-const defaults={template:'{sku}_{seq:02}',url:'',token:'',sku:'',width:'',height:'',lastSync:0,mode:'standard',products:{},historyByMode:{},counters:{},used:[],savedPairs:[],queue:[],history:[],last:''};
+const defaults={template:'{sku}_{seq:02}',url:'',token:'',sku:'',width:'',height:'',lastSync:0,workerUrl:'',uploadToken:'',jpegQuality:0.85,downloadCopy:true,committedSeq:{},sheetLastSeq:{},imageBase:'',photoMaxEdge:2500,photoAspect:'square',mode:'standard',products:{},historyByMode:{},counters:{},used:[],savedPairs:[],queue:[],history:[],last:''};
 // STATE — never discard filename reservations, including after sheet deletion.
 let state;try{state={...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{state={...defaults}}
 state.historyByMode.standard ||= state.history;
 let used=new Set(state.used),savedPairs=new Set(state.savedPairs),scanner,decoding=false,capturing=false,starting=false,scanTime=0,audioContext,thumbnailUrl,draft=null,photoMetadata=null,scannerClosing=null,scannerWatchdog=null,focusBusy=false;
-let revision=0,syncing=false,historyItems=[],historyOffset=0,historyTotal=0,historyGeneration=0,historyLoading=false,historyCached=false,editing=null,searchTimer,lookupTimer,scanTarget='sku';
+let revision=0,syncing=false,historyItems=[],historyOffset=0,historyTotal=0,historyGeneration=0,historyLoading=false,historyCached=false,editing=null,searchTimer,lookupTimer,scanTarget='sku',pendingImageExport=null,exportBusy=false,photoStoreReady=false,photoStoreFailed=false,photoDBPromise=null,uploadPhotos=[],uploadRunning=false,uploadAuthBlocked=false,uploadTimer=null,productCommitting=false,photoSaving=false,photoThumbUrls=[];
 function persist(){state.used=[...used];state.savedPairs=[...savedPairs];try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch{message('Browser storage is full or unavailable. Free storage before saving photos.');return false}}
 function message(s){$('message').textContent=s}
 function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,3500)}
@@ -119,9 +129,10 @@ function badge(){
 }
 // Reserve SKU/sequence pairs independently of templates, dates, and dimensions.
 function pairKey(sku,seq){return JSON.stringify([String(sku).trim(),Number(seq)])}
-function rememberRow(row){used.add(row.filename);if(row.sku!=null&&Number(row.seq)>=1)savedPairs.add(pairKey(row.sku,row.seq))}
+function rememberRow(row){used.add(row.filename);if(row.sku!=null&&Number(row.seq)>=1){savedPairs.add(pairKey(row.sku,row.seq));state.committedSeq[row.sku]=Math.max(Number(state.committedSeq[row.sku])||0,Number(row.seq))}}
+for(const key of savedPairs){try{const [sku,seq]=JSON.parse(key);state.committedSeq[sku]=Math.max(Number(state.committedSeq[sku])||0,Number(seq)||0)}catch{}}
 for(const row of [...state.history,...state.queue.filter(r=>r.action==='add')])rememberRow(row);
-function alreadySaved(sku,seq,name){return used.has(name)||savedPairs.has(pairKey(sku,seq))}
+function alreadySaved(sku,seq,name){return used.has(name)||savedPairs.has(pairKey(sku,seq))||uploadPhotos.some(p=>p.filename===name||pairKey(p.sku,p.seq)===pairKey(sku,seq))}
 function counter(){return Math.max(1,Math.trunc(Number(state.counters[state.sku])||1))}
 function setCounter(n){state.counters[state.sku]=Math.max(1,Math.trunc(Number(n)||1));revision++;persist();renderNext()}
 // FILENAME ENGINE
@@ -151,10 +162,10 @@ function renderNext(){
  if(document.activeElement!==$('seq'))$('seq').value=seq;
  $('next').textContent='Next: '+(state.sku.trim()?name:'—');
  $('last').textContent='Last saved: '+(state.last||'—');
- $('takePhoto').disabled=blocked||capturing;
+ $('takePhoto').disabled=blocked||capturing||productCommitting||!photoStoreReady;
  $('sequenceError').textContent=blocked?'This SKU and number or filename has already been saved. Choose another number.':'';
 }
-function skuChanged(value){state.sku=value.trim();revision++;persist();renderNext();renderProduct();clearTimeout(lookupTimer);lookupCounter(state.sku,revision)}
+function skuChanged(value){state.sku=value.trim();revision++;persist();renderNext();renderProduct();renderUploadUI();clearTimeout(lookupTimer);lookupCounter(state.sku,revision)}
 // CAMERA — scanning runs only in its dialog; still photos use Android's camera picker.
 async function startCamera(target='sku'){
  if(starting||scannerClosing||scanner?.isScanning)return;scanTarget=target;starting=true;decoding=true;scanTime=0;armAudio();
@@ -229,19 +240,42 @@ function onScan(text){
  else{$('sku').value=text;skuChanged(text);toast('SKU scanned')}
 }
 // CAPTURE — native camera confirmation saves directly; reserve names before downloading.
-function canvasJPEG(source,w,h){const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(source,0,0,w,h);return new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('JPEG conversion failed.')),'image/jpeg',1))}
-async function jpegFromFile(file){
- if(file.type==='image/jpeg')return file;
- const image=await createImageBitmap(file);try{return await canvasJPEG(image,image.width,image.height)}finally{image.close()}
+// PHOTO OUTPUT — resize the native camera image, preserve orientation and avoid cropping.
+function photoDimensions(width,height,maxEdge,aspect){
+ const edge=Math.max(320,Math.min(6000,Math.trunc(Number(maxEdge)||2500)));
+ if(aspect==='original'){const scale=Math.min(1,edge/Math.max(width,height));return {width:Math.max(1,Math.round(width*scale)),height:Math.max(1,Math.round(height*scale))}}
+ const ratio=aspect==='landscape'?4/3:aspect==='portrait'?3/4:1;
+ // The smallest canvas with this ratio that contains the original, capped at edge.
+ let w=Math.max(width,height*ratio),h=w/ratio,scale=Math.min(1,edge/Math.max(w,h));
+ return {width:Math.max(1,Math.round(w*scale)),height:Math.max(1,Math.round(h*scale))};
+}
+function canvasJPEG(source,width,height,quality=state.jpegQuality){
+ const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+ const ctx=canvas.getContext('2d');if(!ctx)throw Error('Photo processing is unavailable.');
+ ctx.fillStyle='#ffffff';ctx.fillRect(0,0,width,height);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+ const scale=Math.min(1,width/source.width,height/source.height),w=source.width*scale,h=source.height*scale;
+ ctx.drawImage(source,(width-w)/2,(height-h)/2,w,h);
+ return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(Error('JPEG conversion failed.')),'image/jpeg',Math.max(.5,Math.min(1,Number(quality)||.85))));
+}
+async function jpegFromFile(file,settings=photoMetadata||state){
+ let image,url;
+ try{
+  if(typeof createImageBitmap==='function')image=await createImageBitmap(file,{imageOrientation:'from-image'});
+  else{url=URL.createObjectURL(file);image=new Image();image.src=url;await image.decode()}
+  const width=image.width,height=image.height;if(!width||!height)throw Error('Invalid photo dimensions.');
+  const output=photoDimensions(width,height,settings.photoMaxEdge,settings.photoAspect);
+  return await canvasJPEG(image,output.width,output.height,settings.jpegQuality);
+ }finally{image?.close?.();if(url)URL.revokeObjectURL(url)}
 }
 function takePhoto(){
+ if(!photoStoreReady){toast('Photo storage is unavailable or still loading.');return}
  if(!state.sku.trim()){toast('Enter or scan a SKU first.');$('sku').focus();return}
  if(capturing&&!draft)return;
  if(!draft){
   const now=new Date(),seq=counter(),name=filename(seq,now);
   if(alreadySaved(state.sku,seq,name)){renderNext();toast('That SKU and number or filename has already been saved.');return}
-  if(state.mode==='shopify'&&!validateProduct(readProduct('p-')))return;
-  photoMetadata={now,sku:state.sku,seq,filename:name,mode:state.mode,...(state.mode==='shopify'?{product:{...currentProduct()}}:{width:state.width,height:state.height})};capturing=true;revision++;renderNext();
+  if(state.mode==='shopify')productInput();
+  photoMetadata={now,sku:state.sku,seq,filename:name,mode:state.mode,photoMaxEdge:state.photoMaxEdge,photoAspect:state.photoAspect,jpegQuality:state.jpegQuality,imageBase:state.imageBase,...(state.mode==='shopify'?{product:{...currentProduct()}}:{width:state.width,height:state.height})};capturing=true;revision++;renderNext();
  }
  $('photoInput').value='';$('photoInput').click();
 }
@@ -249,41 +283,43 @@ async function receivedPhoto(){
  const file=$('photoInput').files[0];if(!file){cancelPhoto();return}
  if(!photoMetadata)return;
  $('takePhoto').disabled=true;
- try{const blob=await jpegFromFile(file);draft={blob,...photoMetadata};trySavePhoto()}
+ try{const blob=await jpegFromFile(file);draft={blob,...photoMetadata};await trySavePhoto()}
  catch(e){message('Could not open photo: '+e.message);cancelPhoto()}
  finally{renderNext()}
 }
 function cancelPhoto(){
  draft=null;photoMetadata=null;capturing=false;$('photoInput').value='';$('photoSaveError').hidden=true;renderNext();
 }
-function trySavePhoto(){
- try{savePhoto()}catch(e){$('photoSaveMessage').textContent=e.message;$('photoSaveError').hidden=false;message('Photo has not been saved.');}
+async function trySavePhoto(){
+ try{await savePhoto()}catch(e){$('photoSaveMessage').textContent=e.message;$('photoSaveError').hidden=false;message('Photo has not been saved.');}
 }
-function savePhoto(){
- if(!draft)return;
- // Recheck after the native camera returns; do not overwrite a reserved filename.
- if(alreadySaved(draft.sku,draft.seq,draft.filename))throw Error('That SKU and number or filename has already been saved. Discard this photo and choose another number.');
- const row={action:'add',ts:draft.now.toISOString(),sku:draft.sku,seq:draft.seq,filename:draft.filename,mode:draft.mode||'standard',...(draft.mode==='shopify'?{product:draft.product,imageUrl:draft.filename}:{width:draft.width,height:draft.height})};
- const oldCounter=state.counters[row.sku],oldLast=state.last,id=crypto.randomUUID();
- if(row.mode==='shopify')state.products[row.sku]={...row.product,locked:true};
- rememberRow(row);state.counters[row.sku]=row.seq+1;state.last=row.filename;state.queue.push({id,...row});
- if(!persist()){used.delete(row.filename);savedPairs.delete(pairKey(row.sku,row.seq));state.counters[row.sku]=oldCounter;state.last=oldLast;state.queue=state.queue.filter(r=>r.id!==id);throw Error('Could not save filename reservation. Free browser storage and retry.')}
- revision++;
- const url=URL.createObjectURL(draft.blob),a=document.createElement('a');a.href=url;a.download=row.filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
- if(thumbnailUrl)URL.revokeObjectURL(thumbnailUrl);thumbnailUrl=URL.createObjectURL(draft.blob);$('thumbnail').src=thumbnailUrl;$('thumbnail').hidden=false;
- cancelPhoto();badge();toast('Saved: '+row.filename);void syncQueue();
+async function savePhoto(){
+ if(!draft||photoSaving)return;photoSaving=true;
+ try{
+  if(alreadySaved(draft.sku,draft.seq,draft.filename))throw Error('That SKU and number or filename has already been saved. Discard and choose another number.');
+  const row={action:'add',ts:draft.now.toISOString(),sku:draft.sku,seq:draft.seq,filename:draft.filename,mode:draft.mode||'standard',...(draft.mode==='shopify'?{imageBase:draft.imageBase||''}:{width:draft.width,height:draft.height})};
+  const photo={...row,blob:draft.blob,createdAt:Date.now(),state:row.mode==='shopify'?'staged':'ready',tries:0,lastError:'',nextTry:0};
+  const outbox=row.mode==='standard'?[{...row,id:crypto.randomUUID(),queuedAt:Date.now()}]:[];
+  await photoStoreWrite([photo],[],outbox);
+  state.counters[row.sku]=row.seq+1;revision++;
+  if(photo.state==='ready'){rememberRow(row);state.last=row.filename;persist();await bridgePhotoOutbox();if(state.downloadCopy)downloadPhoto(photo)}
+  else persist();
+  if(thumbnailUrl)URL.revokeObjectURL(thumbnailUrl);thumbnailUrl=URL.createObjectURL(photo.blob);$('thumbnail').src=thumbnailUrl;$('thumbnail').hidden=false;
+  cancelPhoto();await refreshPhotoStore();toast(photo.state==='staged'?'Photo staged · tap ✓ to save product':'Saved: '+row.filename);
+  void syncQueue();void uploadPendingPhotos();
+ }finally{photoSaving=false}
 }
 // SHEET SYNC — simple text POST, ordered durable queue, no network work on shutter path.
 function endpoint(params={}){if(!state.url)throw new Error('Set Script URL and Token in Settings.');const url=new URL(state.url);url.searchParams.set('token',state.token);url.searchParams.set('mode',state.mode);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,String(v)));return url}
-async function request(params={},payload=null){
- const mode=params.mode||payload?.mode||state.mode,abort=new AbortController(),timer=setTimeout(()=>abort.abort(),5000);
+async function request(params={},payload=null,timeoutMs=5000){
+ const mode=params.mode||payload?.mode||state.mode,abort=new AbortController(),timer=setTimeout(()=>abort.abort(),timeoutMs);
  try{const response=await fetch(endpoint(params),payload?{method:'POST',body:JSON.stringify({token:state.token,...payload}),signal:abort.signal,redirect:'follow'}:{signal:abort.signal,cache:'no-store',redirect:'follow'});if(!response.ok)throw new Error('Sheet HTTP '+response.status);const data=await response.json();if(!data.ok)throw new Error(data.error||'Sheet request rejected.');if(mode==='shopify'&&data.apiVersion!==2)throw Error('Deploy the updated Apps Script before using Shopify mode.');state.lastSync=Date.now();persist();badge();return data}finally{clearTimeout(timer)}
 }
-async function lookupCounter(sku,version){if(!sku||!state.url||!navigator.onLine)return;const url=state.url;try{const mode=state.mode,data=await request({sku,mode});if(mode==='shopify'&&data.apiVersion!==2){$('shopifyStatus').textContent='Deploy the updated Apps Script before using Shopify sync.';return}const last=Number(data.lastSeq);if(state.sku===sku&&revision===version&&url===state.url&&mode===state.mode&&!capturing&&Number.isFinite(last)&&last>=0){const pending=state.queue.filter(r=>r.action==='add'&&r.sku===sku).map(r=>Number(r.seq));state.counters[sku]=Math.max(last+1,...pending.map(n=>n+1),1);if(mode==='shopify'&&data.product&&!hasPendingProduct(sku)){state.products[sku]={...data.product,locked:true};renderProduct()}persist();renderNext()}void syncQueue()}catch{/* Local next remains usable when the sheet is unavailable. */}}
+async function lookupCounter(sku,version){if(!sku||!state.url||!navigator.onLine)return;const url=state.url;try{const mode=state.mode,data=await request({sku,mode});if(mode==='shopify'&&data.apiVersion!==2){$('shopifyStatus').textContent='Deploy the updated Apps Script before using Shopify sync.';return}const last=Number(data.lastSeq);if(state.sku===sku&&revision===version&&url===state.url&&mode===state.mode&&!capturing&&Number.isFinite(last)&&last>=0){const pending=state.queue.filter(r=>r.action==='add'&&r.sku===sku).map(r=>Number(r.seq));state.sheetLastSeq[sku]=last;state.counters[sku]=Math.max(last+1,...pending.map(n=>n+1),1);while(alreadySaved(sku,state.counters[sku],filename(state.counters[sku])))state.counters[sku]++;if(mode==='shopify'&&data.product&&!hasPendingProduct(sku)){state.products[sku]={...data.product,locked:true};renderProduct()}persist();renderNext()}void syncQueue()}catch{/* Local next remains usable when the sheet is unavailable. */}}
 // Index every sheet filename, not just the most recent history page.
 let indexing=false;
 async function indexSheetNames(){if(indexing||!state.url||!navigator.onLine)return;indexing=true;const source=state.url;try{for(const mode of ['standard','shopify']){let offset=0;while(source===state.url){const data=await request({mode,action:'list',limit:50,offset});if(!Array.isArray(data.items))break;data.items.forEach(rememberRow);persist();if(!capturing)renderNext();offset+=data.items.length;if(!data.items.length||offset>=Number(data.total))break}}void syncQueue()}catch{/* Existing reservations remain authoritative offline. */}finally{indexing=false}}
-async function syncQueue(){if(syncing||!navigator.onLine||!state.url){badge();return}syncing=true;let shopifyVerified=false;try{while(state.queue.length){const item=state.queue[0];const {id,...payload}=item;payload.mode ||= 'standard';if(payload.mode==='shopify'&&!shopifyVerified){const capabilities=await request({mode:'shopify',sku:payload.sku||''});if(capabilities.apiVersion!==2)throw Error('Deploy the updated Apps Script before syncing Shopify records.');shopifyVerified=true}const result=await request({mode:payload.mode},payload);if(payload.mode==='shopify'&&result.product){const existing=state.products[payload.sku]||{};state.products[payload.sku]={...existing,handle:result.product.handle,locked:true};if(state.sku===payload.sku)renderHandle()}state.queue=state.queue.filter(r=>r.id!==id);persist();badge()}}catch(e){message('Sheet sync pending: '+e.message)}finally{syncing=false;badge()}}
+async function syncQueue(){if(syncing||!navigator.onLine||!state.url){badge();return}if(!photoStoreReady&&!photoStoreFailed)return;syncing=true;let shopifyVerified=false;try{if(photoStoreReady)await bridgePhotoOutbox();while(state.queue.length){const item=state.queue[0];const {id,queuedAt,...payload}=item;payload.mode ||= 'standard';if(payload.mode==='shopify'&&!shopifyVerified){const capabilities=await request({mode:'shopify',sku:payload.sku||''});if(capabilities.apiVersion!==2)throw Error('Deploy the updated Apps Script before syncing Shopify records.');shopifyVerified=true}const result=await request({mode:payload.mode},payload);if(payload.mode==='shopify'&&result.product){const existing=state.products[payload.sku]||{};state.products[payload.sku]={...existing,handle:result.product.handle,locked:true};if(state.sku===payload.sku)renderHandle()}if(photoStoreReady)await photoStoreWrite([],[],[],[id]);state.queue=state.queue.filter(r=>r.id!==id);persist();badge()}}catch(e){message('Sheet sync pending: '+e.message)}finally{syncing=false;badge()}}
 function queueMutation(payload){const id=crypto.randomUUID();state.queue.push({id,mode:state.mode,...payload});if(!persist()){state.queue=state.queue.filter(r=>r.id!==id);return false}badge();void syncQueue();return true}
 // HISTORY PANEL — textContent for all sheet content.
 function openHistory(){ $('history').classList.add('open');$('history').inert=false;$('history').setAttribute('aria-hidden','false');$('historyHandle').setAttribute('aria-expanded','true');void loadHistory(true)}
@@ -336,28 +372,213 @@ function renderHandle(){$('productHandle').textContent=currentProduct().handle||
 function renderProduct(){fillProduct('p-',currentProduct());renderHandle()}
 function validateProduct(p){if(!state.sku.trim()){toast('Enter or scan a SKU first.');return false}if(!p.title){toast('Enter a product title.');return false}for(const key of ['price','quantity','weight'])if(p[key]!==''&&(!Number.isFinite(Number(p[key]))||Number(p[key])<0||(['quantity','weight'].includes(key)&&!Number.isInteger(Number(p[key]))))){toast('Enter a valid '+key+'.');return false}return true}
 function productInput(){if(!state.sku.trim())return;const p={...currentProduct(),...readProduct('p-')};p.handle=localHandle(state.sku,p.title);state.products[state.sku]=p;revision++;persist();renderHandle()}
-function renderMode(){$('mode').value=state.mode;$('standardFields').hidden=state.mode==='shopify';$('shopifyFields').hidden=state.mode!=='shopify';renderProduct()}
+function renderMode(){$('mode').value=state.mode;$('standardFields').hidden=state.mode==='shopify';$('shopifyFields').hidden=state.mode!=='shopify';renderProduct();renderUploadUI()}
 function switchMode(mode){if(capturing)return;state.historyByMode[state.mode]=state.history;state.mode=mode;state.history=state.historyByMode[mode]||[];historyGeneration++;historyLoading=false;historyItems=[];$('search').value='';revision++;persist();renderMode();renderNext();lookupCounter(state.sku,revision);void indexSheetNames()}
-function saveProduct(){
- if(capturing||$('saveProduct').disabled)return;
- productInput();const sku=state.sku,p=currentProduct();if(!validateProduct(p))return;
- state.products[sku]={...p,locked:true};
- if(!queueMutation({mode:'shopify',action:'product',sku,product:{...p}})){state.products[sku]=p;toast('Could not save product details. Free browser storage and retry.');return}
- $('saveProduct').disabled=true;$('saveProduct').classList.remove('saved');void $('saveProduct').offsetWidth;$('saveProduct').classList.add('saved');
- // Start an empty product; retain the completed SKU in the local product cache.
- state.sku='';$('sku').value='';revision++;clearTimeout(lookupTimer);persist();renderProduct();renderNext();
- $('shopifyStatus').textContent=navigator.onLine?'Product saved. Sync started. Enter or scan the next SKU.':'Product saved offline. Enter or scan the next SKU; sync will retry online.';
- toast('Saved '+sku);$('sku').focus();
- setTimeout(()=>{$('saveProduct').classList.remove('saved');$('saveProduct').disabled=false},600);
+async function saveProduct(){
+ if(capturing||productCommitting||$('saveProduct').disabled)return;
+ productInput();const sku=state.sku,p={...currentProduct()};if(!validateProduct(p))return;
+ if(!photoStoreReady){toast('Photo storage is not ready.');return}
+ productCommitting=true;$('saveProduct').disabled=true;renderNext();
+ try{
+  const staged=uploadPhotos.filter(photo=>photo.state==='staged'&&photo.sku===sku).sort((a,b)=>a.seq-b.seq),now=Date.now();
+  const outbox=[{id:crypto.randomUUID(),queuedAt:now,mode:'shopify',action:'product',sku,product:p}];
+  const ready=staged.map((photo,i)=>{const imageBase=photo.imageBase||state.imageBase||'';const row={action:'add',ts:photo.ts,mode:'shopify',sku,seq:photo.seq,filename:photo.filename,product:p,imageBase,imageUrl:hostedFilename(photo.filename,imageBase)};outbox.push({...row,id:crypto.randomUUID(),queuedAt:now+i+1});return {...photo,...row,state:'ready',lastError:'',nextTry:0}});
+  // Blob state and sheet outbox commit in one IndexedDB transaction.
+  await photoStoreWrite(ready,[],outbox);
+  state.products[sku]={...p,locked:true};for(const photo of ready)rememberRow(photo);
+  if(ready.length)state.last=ready[ready.length-1].filename;
+  persist();await bridgePhotoOutbox();
+  if(state.downloadCopy)for(const photo of ready)downloadPhoto(photo);
+  $('saveProduct').classList.remove('saved');void $('saveProduct').offsetWidth;$('saveProduct').classList.add('saved');
+  state.sku='';$('sku').value='';revision++;clearTimeout(lookupTimer);persist();renderProduct();renderNext();
+  $('shopifyStatus').textContent=navigator.onLine?'Product saved. Sync and uploads started. Enter or scan the next SKU.':'Product saved offline. Sync and uploads resume online.';
+  toast('Saved '+sku);$('sku').focus();await refreshPhotoStore();void syncQueue();void uploadPendingPhotos();
+ }catch(e){message('Could not finish saving product: '+e.message);toast('Photos are retained on this phone. Check storage and retry.');await refreshPhotoStore().catch(()=>{})}
+ finally{productCommitting=false;renderNext();setTimeout(()=>{$('saveProduct').classList.remove('saved');$('saveProduct').disabled=false},600)}
 }
 function downloadText(text,name){const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
-async function exportShopify(){
- $('exportShopify').disabled=true;
- try{if(!navigator.onLine)throw Error('Connect to export the latest Shopify sheet.');if(!state.url)throw Error('Set your Apps Script URL and Token in Settings.');await syncQueue();if(state.queue.length||syncing)throw Error('Finish syncing pending changes before exporting.');const data=await request({action:'export',mode:'shopify'});if(typeof data.csv!=='string')throw Error('Deploy the updated Apps Script first.');downloadText(data.csv,'shopify-products-'+new Date().toISOString().slice(0,10)+'.csv');$('shopifyStatus').textContent=data.products+' products exported. Image URL cells contain filenames; replace with public URLs before importing images.'}catch(e){$('shopifyStatus').textContent=e.message}finally{$('exportShopify').disabled=false}
+// IMAGE HOSTING — applied once to new photos; export preserves sheet edits.
+function normalizedImageBase(value){
+ const base=String(value||'').trim().replace(/\/+$/,'');if(!base)return '';
+ let url;try{url=new URL(base)}catch{throw Error('Image host URL must start with https://')}
+ if(url.protocol!=='https:')throw Error('Image host URL must start with https://');
+ if(url.username||url.password||url.search||url.hash)throw Error('Use an image host URL without credentials, a query, or a fragment.');
+ return base;
 }
+function hostedFilename(filename,base){const normalized=normalizedImageBase(base);return normalized?normalized+'/'+encodeURIComponent(filename):filename}
+function finishImageExport(data){
+ downloadText(data.csv,'shopify-products-'+new Date().toISOString().slice(0,10)+'.csv');
+ $('shopifyStatus').textContent=data.products+' products exported. '+(data.placeholderImages?'Some image cells contain filenames only; replace them with public URLs before importing images.':'Image URLs taken directly from the Shopify sheet.');
+}
+function cancelImageExport(){pendingImageExport=null;$('imageCheckDialog').close()}
+function confirmImageExport(){if(!pendingImageExport)return;const data=pendingImageExport;cancelImageExport();finishImageExport(data)}
+function showImageCheck(data,missing,unchecked){
+ pendingImageExport=data;$('imageCheckList').replaceChildren();
+ $('imageCheckSummary').textContent=missing.length+' image link problem(s). '+unchecked.length+' image(s) could not be checked. The CSV keeps the sheet’s image URLs unchanged.';
+ for(const item of [...missing,...unchecked]){const li=document.createElement('li');li.textContent=[item.sku,item.filename,'Status: '+item.status,item.reason||''].filter(Boolean).join(' · ');$('imageCheckList').append(li)}
+ $('imageCheckDialog').showModal();
+}
+async function exportShopify(){
+ if(exportBusy||pendingImageExport)return;exportBusy=true;$('exportShopify').disabled=true;
+ try{
+  if(!navigator.onLine)throw Error('Connect to export the latest Shopify sheet.');
+  if(!state.url)throw Error('Set your Apps Script URL and Token in Settings.');
+  await refreshPhotoStore();const pending=uploadPhotos.filter(photo=>photo.state!=='staged').length;if(pending)throw Error(pending+' photos have not finished uploading yet.');
+  await syncQueue();if(state.queue.length||syncing)throw Error('Finish syncing pending changes before exporting.');
+  $('shopifyStatus').textContent='Preparing CSV…';
+  const data=await request({action:'export',mode:'shopify'},null,30000);
+  if(typeof data.csv!=='string'||!Array.isArray(data.imageChecks))throw Error('Deploy the updated Apps Script before exporting.');
+  const unique=[...new Map(data.imageChecks.map(item=>[item.url,item])).values()];
+  const remote=unique.filter(item=>/^https?:\/\//i.test(item.url)),missing=[],unchecked=[];
+  // Preserve filename-only export when no public URLs have been set yet.
+  if(remote.length){
+   for(const item of unique)if(!/^https?:\/\//i.test(item.url))missing.push({...item,status:'No public image URL'});
+   const deadline=Date.now()+120000;
+   for(let offset=0;offset<remote.length;offset+=10){
+    if(Date.now()>=deadline){unchecked.push(...remote.slice(offset).map(item=>({...item,status:'Time limit'})));break}
+    const batch=remote.slice(offset,offset+10);
+    $('shopifyStatus').textContent='Checking image links '+(offset+1)+'–'+(offset+batch.length)+' of '+remote.length+'…';
+    try{
+     const result=await request({mode:'shopify'},{action:'checkImages',mode:'shopify',filenames:batch.map(item=>({filename:item.filename,url:item.url}))},25000);
+     if(!Array.isArray(result.missing)||!Array.isArray(result.unchecked))throw Error('Deploy the updated Apps Script.');
+     missing.push(...result.missing);unchecked.push(...result.unchecked);
+    }catch(e){unchecked.push(...batch.map(item=>({...item,status:'Could not check',reason:e.message})))}
+   }
+  }
+  if(missing.length||unchecked.length){$('shopifyStatus').textContent='Image checks need review.';showImageCheck(data,missing,unchecked)}
+  else finishImageExport(data);
+ }catch(e){$('shopifyStatus').textContent=e.message}
+ finally{exportBusy=false;$('exportShopify').disabled=false}
+}
+
 function csvHeader(text){let quoted=false,value='',fields=[];text=text.replace(/^\uFEFF/,'');for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){value+='"';i++}else quoted=!quoted}else if(c===','&&!quoted){fields.push(value);value=''}else if((c==='\n'||c==='\r')&&!quoted){fields.push(value);return fields}else value+=c}fields.push(value);return fields}
 async function uploadTemplate(){const file=$('templateInput').files[0];if(!file)return;try{await request({mode:'shopify'},{mode:'shopify',action:'template',headers:csvHeader(await file.text())});$('shopifyStatus').textContent='Official CSV template headers updated.'}catch(e){$('shopifyStatus').textContent=e.message}finally{$('templateInput').value=''}}
+// PHOTO STORAGE / UPLOADS — durable blobs and a sheet outbox, never blobs in localStorage.
+function openPhotoDB(){
+ if(photoDBPromise)return photoDBPromise;
+ photoDBPromise=new Promise((resolve,reject)=>{
+  if(!window.indexedDB){reject(Error('IndexedDB is unavailable. Photos cannot be stored safely.'));return}
+  const request=indexedDB.open('inventory-camera-uploads',2);
+  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('photos'))db.createObjectStore('photos',{keyPath:'filename'});if(!db.objectStoreNames.contains('outbox'))db.createObjectStore('outbox',{keyPath:'id'})};
+  request.onerror=()=>reject(request.error||Error('Could not open photo storage.'));
+  request.onblocked=()=>reject(Error('Close other copies of this app, then reload to update photo storage.'));
+  request.onsuccess=()=>{request.result.onversionchange=()=>request.result.close();resolve(request.result)};
+ });return photoDBPromise;
+}
+async function readPhotoStore(){
+ const db=await openPhotoDB();return new Promise((resolve,reject)=>{
+  const tx=db.transaction(['photos','outbox'],'readonly'),photos=tx.objectStore('photos').getAll(),outbox=tx.objectStore('outbox').getAll();
+  tx.oncomplete=()=>resolve({photos:photos.result,outbox:outbox.result});
+  tx.onerror=tx.onabort=()=>reject(tx.error||Error('Could not read photo storage.'));
+ });
+}
+async function photoStoreWrite(photos=[],removePhotos=[],outbox=[],removeOutbox=[]){
+ const db=await openPhotoDB();return new Promise((resolve,reject)=>{
+  let tx;try{tx=db.transaction(['photos','outbox'],'readwrite',{durability:'strict'})}catch{tx=db.transaction(['photos','outbox'],'readwrite')}
+  tx.oncomplete=()=>resolve();tx.onerror=tx.onabort=()=>reject(tx.error||Error('Photo storage is full or unavailable.'));
+  try{const p=tx.objectStore('photos'),o=tx.objectStore('outbox');for(const item of photos)p.put(item);for(const key of removePhotos)p.delete(key);for(const item of outbox)o.put(item);for(const key of removeOutbox)o.delete(key)}catch(error){tx.abort();reject(error)}
+ });
+}
+async function bridgePhotoOutbox(){
+ const stored=await readPhotoStore();
+ for(const row of stored.outbox.sort((a,b)=>a.queuedAt-b.queuedAt)){
+  if(!state.queue.some(item=>item.id===row.id))state.queue.push(row);
+  if(row.action==='add'){rememberRow(row);state.counters[row.sku]=Math.max(counterFor(row.sku),Number(row.seq)+1)}
+  if(row.product&&!state.products[row.sku])state.products[row.sku]={...row.product,locked:true};
+ }
+ return persist();
+}
+function counterFor(sku){return Math.max(1,Number(state.counters[sku])||1)}
+async function refreshPhotoStore(){
+ const data=await readPhotoStore();uploadPhotos=data.photos.sort((a,b)=>a.createdAt-b.createdAt||a.seq-b.seq);renderUploadUI();return data;
+}
+async function initializePhotoStore(){
+ try{
+  const data=await readPhotoStore();uploadPhotos=data.photos;photoStoreReady=true;
+  for(const photo of uploadPhotos){if(photo.state!=='staged')rememberRow(photo);state.counters[photo.sku]=Math.max(counterFor(photo.sku),Number(photo.seq)+1)}
+  await bridgePhotoOutbox();renderUploadUI();renderNext();
+  if(!state.persistRequested&&navigator.storage?.persist){state.persistRequested=true;persist();void navigator.storage.persist().catch(()=>{})}
+  void syncQueue();void uploadPendingPhotos();
+ }catch(e){photoStoreFailed=true;message('Photo storage error: '+e.message);$('uploadStatus').textContent=e.message;$('uploadBadge').textContent='Photo storage unavailable';renderNext();void syncQueue()}
+}
+function downloadPhoto(photo){
+ const url=URL.createObjectURL(photo.blob),link=document.createElement('a');link.href=url;link.download=photo.filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+function recomputeStagedCounter(sku){
+ let seq=Math.max(Number(state.committedSeq[sku])||0,Number(state.sheetLastSeq[sku])||0,...state.queue.filter(r=>r.sku===sku&&r.action==='add').map(r=>Number(r.seq)||0))+1;
+ const previous=state.sku;state.sku=sku;
+ while(alreadySaved(sku,seq,filename(seq)))seq++;
+ state.sku=previous;state.counters[sku]=seq;revision++;persist();renderNext();
+}
+async function removeStagedPhotos(sku,filename){
+ if(productCommitting||photoSaving)return;
+ const photos=uploadPhotos.filter(photo=>photo.state==='staged'&&photo.sku===sku&&(!filename||photo.filename===filename));
+ if(!filename&&!confirm('Discard all unsaved photos for '+sku+'?'))return;
+ try{await photoStoreWrite([],photos.map(photo=>photo.filename));await refreshPhotoStore();recomputeStagedCounter(sku);toast('Unsaved photo'+(photos.length===1?'':'s')+' removed')}catch(e){message('Could not remove staged photos: '+e.message)}
+}
+function renderUploadUI(){
+ if(!$('uploadBadge'))return;
+ const pending=uploadPhotos.filter(photo=>photo.state!=='staged'),staged=uploadPhotos.filter(photo=>photo.state==='staged');
+ $('uploadBadge').textContent=!photoStoreReady?(photoStoreFailed?'Photo storage unavailable':'Loading photo storage…'):pending.length?pending.length+' photos '+(uploadRunning?'uploading':'pending upload'):'All photos uploaded';
+ $('uploadStatus').textContent=uploadAuthBlocked?'Upload token rejected. Check Settings.':pending.length&&(!state.workerUrl||!state.uploadToken)?'Set the upload Worker URL and token in Settings.':'';
+ for(const url of photoThumbUrls)URL.revokeObjectURL(url);photoThumbUrls=[];
+ function tile(photo,remove){
+  const div=document.createElement('div');div.className='staged-tile';const img=document.createElement('img'),url=URL.createObjectURL(photo.blob);photoThumbUrls.push(url);img.src=url;img.alt=photo.filename;
+  const label=document.createElement('small');label.textContent=photo.filename;div.append(img,label);
+  if(remove){const button=document.createElement('button');button.textContent='×';button.setAttribute('aria-label','Remove '+photo.filename);button.onclick=()=>removeStagedPhotos(photo.sku,photo.filename);div.append(button)}return div;
+ }
+ const current=staged.filter(photo=>photo.sku===state.sku);$('stagedSection').hidden=state.mode!=='shopify'||!current.length;$('stagedCount').textContent=current.length+' photos not saved yet';$('stagedPhotos').replaceChildren();current.forEach(photo=>$('stagedPhotos').append(tile(photo,true)));
+ $('unsavedItems').replaceChildren();const skus=[...new Set(staged.filter(photo=>photo.sku!==state.sku||state.mode!=='shopify').map(photo=>photo.sku))];$('unsavedSection').hidden=!skus.length;
+ for(const sku of skus){
+  const photos=staged.filter(photo=>photo.sku===sku),div=document.createElement('article');div.className='unsaved-item';
+  const label=document.createElement('strong');label.textContent=sku+' · '+photos.length+' unsaved photos';const strip=document.createElement('div');strip.className='photo-strip';photos.forEach(photo=>strip.append(tile(photo,false)));
+  const actions=document.createElement('div');actions.className='row';const resume=document.createElement('button'),discard=document.createElement('button');resume.textContent='Resume / Save';discard.textContent='Discard';resume.onclick=()=>{if(capturing||productCommitting)return;if(state.mode!=='shopify')switchMode('shopify');$('sku').value=sku;skuChanged(sku)};discard.onclick=()=>removeStagedPhotos(sku);actions.append(resume,discard);div.append(label,strip,actions);$('unsavedItems').append(div);
+ }
+ $('failedUploads').replaceChildren();
+ for(const photo of pending.filter(photo=>photo.state==='failed')){
+  const div=document.createElement('article');div.className='upload-problem';const label=document.createElement('p');label.textContent=photo.filename+' · '+photo.lastError;
+  const actions=document.createElement('div');actions.className='row';const retry=document.createElement('button'),discard=document.createElement('button'),download=document.createElement('button');retry.textContent='Retry';discard.textContent='Discard upload';download.textContent='Download copy';retry.onclick=()=>retryFailedUpload(photo.filename);discard.onclick=()=>discardFailedUpload(photo.filename);download.onclick=()=>downloadPhoto(photo);actions.append(retry,discard,download);div.append(label,actions);$('failedUploads').append(div);
+ }
+}
+async function retryFailedUpload(filename){
+ try{const photo=uploadPhotos.find(item=>item.filename===filename);if(!photo)return;await photoStoreWrite([{...photo,state:'ready',tries:0,nextTry:0,lastError:''}]);uploadAuthBlocked=false;await refreshPhotoStore();void uploadPendingPhotos(true)}catch(e){message('Could not retry upload: '+e.message)}
+}
+async function discardFailedUpload(filename){
+ if(!confirm('Discard the pending upload for '+filename+'? Its sheet row and filename reservation will remain. Download a copy first if needed.'))return;
+ try{await photoStoreWrite([],[filename]);await refreshPhotoStore()}catch(e){message('Could not discard upload: '+e.message)}
+}
+async function uploadPendingPhotos(force=false){
+ if(!photoStoreReady||uploadRunning)return;
+ clearTimeout(uploadTimer);
+ if(!navigator.onLine){renderUploadUI();return}
+ if(force)uploadAuthBlocked=false;
+ if(uploadAuthBlocked||!state.workerUrl||!state.uploadToken){renderUploadUI();return}
+ uploadRunning=true;renderUploadUI();
+ try{
+  while(navigator.onLine){
+   await refreshPhotoStore();
+   const candidates=uploadPhotos.filter(photo=>photo.state==='ready').sort((a,b)=>a.createdAt-b.createdAt||a.seq-b.seq);if(!candidates.length)break;
+   const photo=candidates[0];if(!force&&photo.nextTry>Date.now()){uploadTimer=setTimeout(()=>uploadPendingPhotos(),Math.min(120000,photo.nextTry-Date.now()));break}
+   const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),60000);let response,data;
+   try{
+    response=await fetch(state.workerUrl+'/'+encodeURIComponent(photo.filename),{method:'PUT',headers:{Authorization:'Bearer '+state.uploadToken,'Content-Type':'image/jpeg'},body:photo.blob,signal:abort.signal});
+    try{data=await response.json()}catch{data={ok:false,error:'Worker returned an invalid response.'}}
+    if(response.status===200&&data.ok===true){await photoStoreWrite([],[photo.filename]);continue}
+    if(response.status===401){await photoStoreWrite([{...photo,lastError:'Upload token rejected. Check Settings.'}]);uploadAuthBlocked=true;break}
+    if(response.status>=400&&response.status<500){await photoStoreWrite([{...photo,state:'failed',lastError:'HTTP '+response.status+': '+(data.error||'Upload rejected')}]);continue}
+    throw Error('HTTP '+response.status+': '+(data.error||'Upload failed'));
+   }catch(e){
+    const tries=(photo.tries||0)+1,delay=[5000,15000,60000][tries-1]||120000;
+    await photoStoreWrite([{...photo,tries,lastError:e.name==='AbortError'?'Upload timed out.':e.message,nextTry:Date.now()+delay}]);uploadTimer=setTimeout(()=>uploadPendingPhotos(),delay);break;
+   }finally{clearTimeout(timer)}
+   force=false;
+  }
+ }catch(e){message('Photo upload/storage error: '+e.message)}
+ finally{uploadRunning=false;await refreshPhotoStore().catch(()=>{});renderUploadUI()}
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){void uploadPendingPhotos(true);void syncQueue()}});
 // UI
+$('downloadAnyway').onclick=confirmImageExport;$('cancelImageExport').onclick=cancelImageExport;$('imageCheckDialog').addEventListener('cancel',e=>{e.preventDefault();cancelImageExport()});
 for(const key of PRODUCT_FIELDS)$('p-'+key).addEventListener('input',productInput);
 $('saveProduct').onclick=saveProduct;$('exportShopify').onclick=exportShopify;
 $('uploadTemplate').onclick=()=>{$('templateInput').value='';$('templateInput').click()};$('templateInput').onchange=uploadTemplate;
@@ -367,15 +588,15 @@ $('seq').oninput=e=>{if(e.target.value!==''&&Number.isInteger(Number(e.target.va
 $('scan').onclick=()=>startCamera('sku');$('historyScan').onclick=()=>startCamera('history');$('camera').addEventListener('pointerup',focusScanner);$('retryScan').onclick=async()=>{const target=scanTarget;await closeScanner();await startCamera(target)};$('closeScanner').onclick=closeScanner;$('scanDialog').addEventListener('cancel',e=>{e.preventDefault();void closeScanner()});
 $('takePhoto').onclick=takePhoto;$('photoInput').onchange=receivedPhoto;$('photoInput').addEventListener('cancel',()=>{if(!draft)cancelPhoto()});
 $('retryPhotoSave').onclick=trySavePhoto;$('discardPhoto').onclick=cancelPhoto;
-$('syncNow').onclick=async()=>{if(!state.url){$('settingsButton').click();return}await syncQueue();lookupCounter(state.sku,revision);void indexSheetNames()};
-$('settingsButton').onclick=()=>{$('mode').value=state.mode;$('template').value=state.template;$('scriptUrl').value=state.url;$('token').value=state.token;openSettings()};$('cancelSettings').onclick=()=>closeSettings();
-$('settingsForm').onsubmit=e=>{e.preventDefault();state.template=$('template').value.trim()||defaults.template;state.url=$('scriptUrl').value.trim();state.token=$('token').value;const mode=$('mode').value;revision++;persist();closeSettings();if(mode!==state.mode)switchMode(mode);else{renderNext();lookupCounter(state.sku,revision);void indexSheetNames()}badge();void syncQueue()};
+$('syncNow').onclick=async()=>{void uploadPendingPhotos(true);if(!state.url){$('settingsButton').click();return}await syncQueue();lookupCounter(state.sku,revision);void indexSheetNames()};
+$('settingsButton').onclick=()=>{$('workerUrl').value=state.workerUrl||'';$('uploadToken').value=state.uploadToken||'';$('jpegQuality').value=state.jpegQuality;$('downloadCopy').checked=state.downloadCopy;renderUploadUI();$('imageBase').value=state.imageBase||'';$('photoMaxEdge').value=state.photoMaxEdge;$('photoAspect').value=state.photoAspect;$('mode').value=state.mode;$('template').value=state.template;$('scriptUrl').value=state.url;$('token').value=state.token;openSettings()};$('cancelSettings').onclick=()=>closeSettings();
+$('settingsForm').onsubmit=e=>{e.preventDefault();let base,worker;try{base=normalizedImageBase($('imageBase').value);worker=normalizedImageBase($('workerUrl').value)}catch(error){toast(error.message);return}state.workerUrl=worker;state.uploadToken=$('uploadToken').value.trim();state.jpegQuality=Math.max(.5,Math.min(1,Number($('jpegQuality').value)||.85));state.downloadCopy=$('downloadCopy').checked;uploadAuthBlocked=false;state.imageBase=base;state.photoMaxEdge=Math.max(320,Math.min(6000,Math.trunc(Number($('photoMaxEdge').value)||2500)));state.photoAspect=$('photoAspect').value;state.template=$('template').value.trim()||defaults.template;state.url=$('scriptUrl').value.trim();state.token=$('token').value;const mode=$('mode').value;revision++;persist();closeSettings();if(mode!==state.mode)switchMode(mode);else{renderNext();lookupCounter(state.sku,revision);void indexSheetNames()}badge();void syncQueue();void uploadPendingPhotos(true)};
 $('historyHandle').onclick=()=>{if(!$('historyHandle').dataset.swiped)openHistory()};$('closeHistory').onclick=()=>{if(!$('closeHistory').dataset.swiped)closeHistory()};swipe($('historyHandle'),openHistory,()=>{});swipe($('closeHistory'),()=>{},closeHistory);
 $('search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadHistory(true),300)};$('loadMore').onclick=()=>loadHistory();$('retryHistory').onclick=$('refreshHistory').onclick=()=>loadHistory(true);
 $('editForm').onsubmit=saveEdit;$('deleteEntry').onclick=()=>deleteRow();$('cancelEdit').onclick=()=>$('editDialog').close();
-window.addEventListener('online',()=>{badge();void syncQueue();lookupCounter(state.sku,revision);void indexSheetNames()});window.addEventListener('offline',()=>{badge();if($('history').classList.contains('open')){historyGeneration++;historyLoading=false;cachedHistory()}});
+window.addEventListener('online',()=>{void uploadPendingPhotos(true);badge();void syncQueue();lookupCounter(state.sku,revision);void indexSheetNames()});window.addEventListener('offline',()=>{badge();if($('history').classList.contains('open')){historyGeneration++;historyLoading=false;cachedHistory()}});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('settings').hidden){closeSettings();return}if(!$('editDialog').open&&!$('scanDialog').open)closeHistory()});
-renderMode();renderNext();badge();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames();
+renderMode();renderNext();badge();void initializePhotoStore();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames();
 // Refresh time tokens without changing the frozen metadata of an in-flight capture.
 setInterval(()=>{if(!capturing)renderNext();badge()},1000);
 </script>

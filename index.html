@@ -294,7 +294,7 @@ async function savePhoto(){
  try{
   if(alreadySaved(draft.sku,draft.seq,draft.filename))throw Error('That SKU and number or filename has already been saved. Discard and choose another number.');
   const row={action:'add',ts:draft.now.toISOString(),sku:draft.sku,seq:draft.seq,filename:draft.filename,mode:draft.mode||'standard',...(draft.mode==='shopify'?{imageBase:draft.imageBase||''}:{width:draft.width,height:draft.height})};
-  const photo={...row,blob:draft.blob,createdAt:Date.now(),state:row.mode==='shopify'?'staged':'ready',tries:0,lastError:'',nextTry:0};
+  const photo={...row,...(row.mode==='shopify'?{product:{...draft.product,dirty:true}}:{}),blob:draft.blob,createdAt:Date.now(),state:row.mode==='shopify'?'staged':'ready',tries:0,lastError:'',nextTry:0};
   const outbox=row.mode==='standard'?[{...row,id:crypto.randomUUID(),queuedAt:Date.now()}]:[];
   await photoStoreWrite([photo],[],outbox);
   state.counters[row.sku]=row.seq+1;revision++;
@@ -359,7 +359,7 @@ function swipe(element,up,down){let y=null;element.addEventListener('pointerdown
 // SHOPIFY — one SKU is one simple product; names stand in for hosted image URLs.
 const PRODUCT_FIELDS=['title','description','price','vendor','type','tags','quantity','weight','status'];
 function currentProduct(sku=state.sku){return state.products[sku]||{title:'',description:'',price:'',vendor:'',type:'',tags:'',quantity:'1',weight:'',status:'draft',handle:'',locked:false}}
-function hasPendingProduct(sku){return state.queue.some(r=>r.mode==='shopify'&&r.sku===sku)}
+function hasPendingProduct(sku){return !!state.products[sku]?.dirty||uploadPhotos.some(photo=>photo.mode==='shopify'&&photo.sku===sku&&photo.state==='staged')||state.queue.some(r=>r.mode==='shopify'&&r.sku===sku)}
 function slugTitle(title){return title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,180).replace(/-$/,'')||'product'}
 function localHandle(sku,title){const p=currentProduct(sku);if(p.locked&&p.handle)return p.handle;const base=slugTitle(title);let handle=base,n=2;while(Object.entries(state.products).some(([key,p])=>key!==sku&&p.handle===handle))handle=base+'-'+n++;return handle}
 function readProduct(prefix){const p={};for(const key of PRODUCT_FIELDS)p[key]=$(prefix+key).value.trim();return p}
@@ -367,7 +367,7 @@ function fillProduct(prefix,p){for(const key of PRODUCT_FIELDS)$(prefix+key).val
 function renderHandle(){$('productHandle').textContent=currentProduct().handle||'—'}
 function renderProduct(){fillProduct('p-',currentProduct());renderHandle()}
 function validateProduct(p){if(!state.sku.trim()){toast('Enter or scan a SKU first.');return false}if(!p.title){toast('Enter a product title.');return false}for(const key of ['price','quantity','weight'])if(p[key]!==''&&(!Number.isFinite(Number(p[key]))||Number(p[key])<0||(['quantity','weight'].includes(key)&&!Number.isInteger(Number(p[key]))))){toast('Enter a valid '+key+'.');return false}return true}
-function productInput(){if(!state.sku.trim())return;const p={...currentProduct(),...readProduct('p-')};p.handle=localHandle(state.sku,p.title);state.products[state.sku]=p;revision++;persist();renderHandle()}
+function productInput(){if(!state.sku.trim())return;const p={...currentProduct(),...readProduct('p-'),dirty:true};p.handle=localHandle(state.sku,p.title);state.products[state.sku]=p;revision++;persist();renderHandle()}
 function renderMode(){$('mode').value=state.mode;$('standardFields').hidden=state.mode==='shopify';$('shopifyFields').hidden=state.mode!=='shopify';renderProduct();renderUploadUI()}
 function switchMode(mode){if(capturing)return;state.historyByMode[state.mode]=state.history;state.mode=mode;state.history=state.historyByMode[mode]||[];historyGeneration++;historyLoading=false;historyItems=[];$('search').value='';revision++;persist();renderMode();renderNext();lookupCounter(state.sku,revision);void indexSheetNames()}
 async function saveProduct(){
@@ -381,7 +381,7 @@ async function saveProduct(){
   const ready=staged.map((photo,i)=>{const imageBase=photo.imageBase||state.imageBase||'';const row={action:'add',ts:photo.ts,mode:'shopify',sku,seq:photo.seq,filename:photo.filename,product:p,imageBase,imageUrl:hostedFilename(photo.filename,imageBase)};outbox.push({...row,id:crypto.randomUUID(),queuedAt:now+i+1});return {...photo,...row,state:'ready',lastError:'',nextTry:0}});
   // Blob state and sheet outbox commit in one IndexedDB transaction.
   await photoStoreWrite(ready,[],outbox);
-  state.products[sku]={...p,locked:true};for(const photo of ready)rememberRow(photo);
+  state.products[sku]={...p,locked:true,dirty:false};for(const photo of ready)rememberRow(photo);
   if(ready.length)state.last=ready[ready.length-1].filename;
   persist();await bridgePhotoOutbox();
   if(state.downloadCopy)for(const photo of ready)downloadPhoto(photo);
@@ -491,6 +491,11 @@ async function refreshPhotoStore(){
 async function initializePhotoStore(){
  try{
   const data=await readPhotoStore();uploadPhotos=data.photos;photoStoreReady=true;
+  // Recover the last staged snapshot if the camera return reloaded the page.
+  for(const photo of [...uploadPhotos].sort((a,b)=>b.createdAt-a.createdAt)){
+   if(photo.state==='staged'&&photo.mode==='shopify'&&photo.product&&!state.products[photo.sku]?.dirty)state.products[photo.sku]={...photo.product,dirty:true};
+  }
+  persist();renderProduct();
   for(const photo of uploadPhotos){if(photo.state!=='staged')rememberRow(photo);state.counters[photo.sku]=Math.max(counterFor(photo.sku),Number(photo.seq)+1)}
   await bridgePhotoOutbox();renderUploadUI();renderNext();
   if(!state.persistRequested&&navigator.storage?.persist){state.persistRequested=true;persist();void navigator.storage.persist().catch(()=>{})}

@@ -158,12 +158,30 @@ function uniqueNext(now=new Date()){
  else while(used.has(name)){n++;name=filename(n,now)}
  return {seq:n,filename:name};
 }
+const sheetLastByMode={},lastSavedChecks={};
+async function refreshLastSaved(force=false){
+ const mode=state.mode,source=state.url;
+ if(!source||!navigator.onLine)return;
+ const previous=lastSavedChecks[mode];if(previous?.busy||(!force&&Date.now()-(previous?.time||0)<30000))return;
+ const check={busy:true,time:Date.now()};lastSavedChecks[mode]=check;
+ try{
+  const data=await request({mode,action:'list',limit:1,offset:0});
+  if(source!==state.url||!Array.isArray(data.items))return;
+  sheetLastByMode[mode]=data.items[0]||null;
+ }catch{/* Keep the last confirmed spreadsheet result during a connection failure. */}
+ finally{check.busy=false;if(mode===state.mode)renderLastSaved()}
+}
+function renderLastSaved(){
+ const row=sheetLastByMode[state.mode];
+ $('last').textContent='Last saved: '+(row===undefined?(state.url?'Checking spreadsheet…':'—'):(row?.filename||'—'));
+ $('last').style.color=row&&String(row.sku).trim()===state.sku.trim()?'#73efd4':'';
+}
 function renderNext(){
  const seq=counter(),name=filename(seq),blocked=!!state.sku.trim()&&alreadySaved(state.sku,seq,name);
  // Do not overwrite digits mid-edit, and never silently replace a manually selected number.
  if(document.activeElement!==$('seq'))$('seq').value=seq;
  $('next').textContent='Next: '+(state.sku.trim()?name:'—');
- $('last').textContent='Last saved: '+(state.last||'—');
+ renderLastSaved();void refreshLastSaved();
  $('takePhoto').disabled=blocked||capturing||productCommitting||!photoStoreReady;
  $('sequenceError').textContent=blocked?'This SKU and number or filename has already been saved. Choose another number.':'';
 }
@@ -300,7 +318,7 @@ async function savePhoto(){
   const outbox=row.mode==='standard'?[{...row,id:crypto.randomUUID(),queuedAt:Date.now()}]:[];
   await photoStoreWrite([photo],[],outbox);
   state.counters[row.sku]=row.seq+1;revision++;
-  if(photo.state==='ready'){rememberRow(row);state.last=row.filename;persist();await bridgePhotoOutbox();if(state.downloadCopy)downloadPhoto(photo)}
+  if(photo.state==='ready'){rememberRow(row);persist();await bridgePhotoOutbox();if(state.downloadCopy)downloadPhoto(photo)}
   else persist();
   if(thumbnailUrl)URL.revokeObjectURL(thumbnailUrl);thumbnailUrl=URL.createObjectURL(photo.blob);$('thumbnail').src=thumbnailUrl;$('thumbnail').hidden=false;
   cancelPhoto();await refreshPhotoStore();toast(photo.state==='staged'?'Photo staged · tap ✓ to save product':'Saved: '+row.filename);
@@ -360,7 +378,7 @@ async function deleteHistoryProduct(sku,trigger){
   if($('editDialog').open&&String(editing?.sku)===String(sku))$('editDialog').close();
   toast('Product removed from the sheet');
  }catch(error){const text=error.message+' · '+deleted+' of '+photos.length+' photo rows confirmed deleted. Refresh history before retrying.';if($('editDialog').open)$('editError').textContent=text;else toast(text)}
- finally{trigger.disabled=false;await loadHistory(true)}
+ finally{trigger.disabled=false;await refreshLastSaved(true);await loadHistory(true)}
 }
 async function loadHistory(reset=false){
  if(historyLoading&&!reset)return;const generation=++historyGeneration,mode=state.mode;if(reset){historyItems=[];historyOffset=0;historyTotal=0}historyLoading=true;historyCached=false;$('historyStatus').textContent='Loading…';$('retryHistory').hidden=true;$('loadMore').hidden=true;if(reset)renderHistory();
@@ -387,7 +405,7 @@ async function deleteRow(row=editing,trigger=$('deleteEntry')){
   historyTotal=Math.max(0,historyTotal-1);historyOffset=Math.max(0,historyOffset-1);persist();renderHistory();
   if($('editDialog').open&&editing?.filename===filename)$('editDialog').close();
   $('historyStatus').textContent=historyItems.length+' of '+historyTotal+' entries';
-  toast('Sheet row deleted');void syncQueue();
+  await refreshLastSaved(true);toast('Sheet row deleted');void syncQueue();
  }catch(e){
   const error=e.message+' · deletion was not confirmed. Check the selected sheet and retry.';
   if($('editDialog').open)$('editError').textContent=error;else $('historyStatus').textContent=error;
@@ -423,7 +441,7 @@ async function saveProduct(){
   // Blob state and sheet outbox commit in one IndexedDB transaction.
   await photoStoreWrite(ready,[],outbox);
   state.products[sku]={...p,locked:true,dirty:false};for(const photo of ready)rememberRow(photo);
-  if(ready.length)state.last=ready[ready.length-1].filename;
+  // Last saved is read from confirmed spreadsheet rows, not staged photos.
   persist();await bridgePhotoOutbox();
   if(state.downloadCopy)for(const photo of ready)downloadPhoto(photo);
   $('saveProduct').classList.remove('saved');void $('saveProduct').offsetWidth;$('saveProduct').classList.add('saved');
@@ -512,7 +530,7 @@ async function readPhotoStore(){
 async function photoStoreWrite(photos=[],removePhotos=[],outbox=[],removeOutbox=[]){
  const db=await openPhotoDB();return new Promise((resolve,reject)=>{
   let tx;try{tx=db.transaction(['photos','outbox'],'readwrite',{durability:'strict'})}catch{tx=db.transaction(['photos','outbox'],'readwrite')}
-  tx.oncomplete=()=>resolve();tx.onerror=tx.onabort=()=>reject(tx.error||Error('Photo storage is full or unavailable.'));
+  tx.oncomplete=()=>{resolve();if(removeOutbox.length)void refreshLastSaved(true)};tx.onerror=tx.onabort=()=>reject(tx.error||Error('Photo storage is full or unavailable.'));
   try{const p=tx.objectStore('photos'),o=tx.objectStore('outbox');for(const item of photos)p.put(item);for(const key of removePhotos)p.delete(key);for(const item of outbox)o.put(item);for(const key of removeOutbox)o.delete(key)}catch(error){tx.abort();reject(error)}
  });
 }

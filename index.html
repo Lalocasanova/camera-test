@@ -337,10 +337,30 @@ function renderProductHistory(){
   function image(photo){const img=document.createElement('img');img.className='history-thumbnail';img.alt='Photo '+photo.seq;img.loading='lazy';const url=photo.imageUrl||(state.imageBase?hostedFilename(photo.filename,state.imageBase):'');if(url)img.src=url;img.onerror=()=>img.removeAttribute('src');return img}
   const info=document.createElement('div');info.className='history-item-info';const title=document.createElement('strong');title.textContent=photos.find(photo=>photo.title)?.title||'Untitled';const detail=document.createElement('div');detail.className='small';detail.textContent='SKU: '+row.sku+' · '+photos.length+' photo'+(photos.length===1?'':'s');info.append(title,detail);item.append(image(row),info);
   const strip=document.createElement('div');strip.className='photo-strip';strip.setAttribute('aria-label','Product photos in order');
-  for(const photo of photos){const tile=document.createElement('div');tile.className='staged-tile';const img=image(photo);const label=document.createElement('small');label.textContent='Photo '+photo.seq;const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.className='danger';remove.setAttribute('aria-label','Delete photo '+photo.seq+' for '+row.sku);remove.disabled=!navigator.onLine;remove.onclick=()=>deleteRow(photo,remove);tile.append(img,label,remove);strip.append(tile)}
-  const actions=document.createElement('div');actions.className='history-actions';const edit=document.createElement('button');edit.textContent='Edit product';edit.onclick=()=>{editRow({...row,title:title.textContent});$('deleteEntry').textContent='Delete photo '+row.seq};actions.append(edit);entry.append(item,strip,actions);list.append(entry);
+  for(const photo of photos){const tile=document.createElement('div');tile.className='staged-tile';const img=image(photo);const label=document.createElement('small');label.textContent='Photo '+photo.seq;const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.className='danger';remove.setAttribute('aria-label','Delete photo '+photo.seq+' for '+row.sku);remove.disabled=!navigator.onLine;remove.onclick=async()=>{await deleteRow(photo,remove);if(!historyItems.some(item=>item.filename===photo.filename))tile.remove()};tile.append(img,label,remove);strip.append(tile)}
+  const actions=document.createElement('div');actions.className='history-actions';const edit=document.createElement('button');edit.textContent='Edit product';edit.onclick=()=>{
+   editRow({...row,title:title.textContent});
+   let gallery=$('editPhotos');if(!gallery){gallery=document.createElement('div');gallery.id='editPhotos';gallery.className='photo-strip';$('editIdentity').after(gallery)}
+   gallery.replaceChildren(strip);$('deleteEntry').textContent='Delete product';$('deleteEntry').onclick=()=>deleteHistoryProduct(row.sku,$('deleteEntry'));
+  };
+  const removeProduct=document.createElement('button');removeProduct.textContent='Delete product';removeProduct.className='danger';removeProduct.disabled=!navigator.onLine;removeProduct.onclick=()=>deleteHistoryProduct(row.sku,removeProduct);
+  actions.append(edit,removeProduct);entry.append(item,actions);list.append(entry);
  }
  if(!groups.size&&!historyLoading){const empty=document.createElement('p');empty.textContent='No products to show.';list.append(empty)}
+}
+$('editDialog').addEventListener('close',()=>{$('editPhotos')?.remove();$('deleteEntry').textContent='Delete';$('deleteEntry').onclick=()=>deleteRow()});
+async function deleteHistoryProduct(sku,trigger){
+ if(historyCached||!navigator.onLine)return;
+ const photos=historyItems.filter(row=>String(row.sku)===String(sku));if(!photos.length)return;
+ if(!confirm('Delete product '+sku+' and all '+photos.length+' photo rows from the live sheet? Cloudflare images and downloaded phone copies will remain.'))return;
+ trigger.disabled=true;let deleted=0;
+ try{
+  await syncQueue();if(syncing||state.queue.length)throw Error('Finish syncing pending changes before deleting this product.');
+  for(const photo of photos){await request({mode:'shopify'},{action:'delete',mode:'shopify',sku:photo.sku,filename:photo.filename});deleted++}
+  if($('editDialog').open&&String(editing?.sku)===String(sku))$('editDialog').close();
+  toast('Product removed from the sheet');
+ }catch(error){const text=error.message+' · '+deleted+' of '+photos.length+' photo rows confirmed deleted. Refresh history before retrying.';if($('editDialog').open)$('editError').textContent=text;else toast(text)}
+ finally{trigger.disabled=false;await loadHistory(true)}
 }
 async function loadHistory(reset=false){
  if(historyLoading&&!reset)return;const generation=++historyGeneration,mode=state.mode;if(reset){historyItems=[];historyOffset=0;historyTotal=0}historyLoading=true;historyCached=false;$('historyStatus').textContent='Loading…';$('retryHistory').hidden=true;$('loadMore').hidden=true;if(reset)renderHistory();

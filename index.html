@@ -45,7 +45,12 @@ main{pointer-events:auto;overflow-y:auto;gap:16px;background:radial-gradient(ell
 /* Standard and Shopify forms share camera and filename controls. */
 select,textarea{font:inherit;font-size:16px;color:white;background:#101c25;border:1px solid #607887;border-radius:10px;padding:10px;width:100%;min-height:46px}
 .mode-label{margin-top:14px}.mode-label select{margin-top:4px}
-input[type=search]+select{margin-top:8px}
+.category-field{text-align:left;width:100%;margin-top:8px;display:flex;align-items:center;gap:12px;background:#101c25;transition:border-color .2s,background .2s}.category-field span{flex:1;overflow-wrap:anywhere}.category-field:after{content:'›';font-size:26px;color:#73efd4}.category-field:hover{border-color:#73efd4;background:#192d38}
+#categoryPicker{inset:0;margin:0;width:100%;max-width:none;height:100%;height:100dvh;max-height:none;padding:0;border:0;border-radius:0;background:#101820;overflow:hidden;opacity:0;transform:translateY(24px);transition:opacity .22s ease,transform .22s ease}
+#categoryPicker.visible{opacity:1;transform:translateY(0)}
+.category-picker-layout{height:100%;display:flex;flex-direction:column}.category-picker-header{padding:max(22px,env(safe-area-inset-top)) 20px 16px;border-bottom:1px solid #304551;background:#15232e}.category-picker-title{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px}.category-picker-title h2{margin:0}.category-picker-title button{border:0;background:#263b49;border-radius:50%;width:46px;padding:0;font-size:25px}.category-picker-header input{appearance:none;border-radius:14px;padding:15px 16px;background:#0d1922;outline:none;transition:border-color .2s,box-shadow .2s}.category-picker-header input:focus{border-color:#73efd4;box-shadow:0 0 0 3px #73efd41a}.category-picker-header input::-webkit-search-cancel-button{display:none}
+#categoryResults{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 20px max(24px,env(safe-area-inset-bottom))}#categoryResultCount{margin:12px 0 0;color:#a8becb;font-size:12px}.category-result{display:block;width:100%;text-align:left;border:1px solid transparent;border-bottom-color:#293e4b;border-radius:12px;background:transparent;padding:16px;margin:4px 0;transition:background .18s,border-color .18s,transform .18s}.category-result:hover,.category-result:focus-visible{background:#203745;border-color:#4a736d;outline:none}.category-result:active{transform:scale(.99)}.category-result[aria-pressed=true]{background:#193d36;border-color:#65e0c6}.category-result strong{display:block;font-size:16px;font-weight:650}.category-result small{display:block;margin-top:6px;color:#a8becb;line-height:1.5;overflow-wrap:anywhere}.category-empty{padding:32px 16px;color:#b6c9d5;text-align:center;line-height:1.6}
+@media(prefers-reduced-motion:reduce){#categoryPicker,.category-field,.category-result{transition:none}}
 #shopifyFields{margin-top:18px}#shopifyFields label,#editProductFields label{margin-top:10px}#shopifyFields h2{margin:0}
 .shopify-actions{margin-top:10px;flex-wrap:wrap}.shopify-actions>*{flex:1}#shopifyStatus{font-size:13px;color:#ffda9f;overflow-wrap:anywhere}
 #standardFields[hidden],#shopifyFields[hidden],#editDimensions[hidden],#editProductFields[hidden]{display:none}
@@ -419,25 +424,47 @@ function closeSettings(){$('settings').hidden=true;$('mainScreen').inert=false;$
 function swipe(element,up,down){let y=null;element.addEventListener('pointerdown',e=>{y=e.clientY;element.setPointerCapture(e.pointerId)});element.addEventListener('pointerup',e=>{if(y===null)return;const delta=e.clientY-y;y=null;if(Math.abs(delta)>35){element.dataset.swiped='1';delta<0?up():down();setTimeout(()=>delete element.dataset.swiped,400)}});element.addEventListener('pointercancel',()=>y=null)}
 // SHOPIFY — one SKU is one simple product; names stand in for hosted image URLs.
 const FACEBOOK_CONDITIONS=['New','Used - Like New','Used - Good','Used - Fair'];
+const categoryPicker=document.createElement('dialog');categoryPicker.id='categoryPicker';categoryPicker.setAttribute('aria-labelledby','categoryPickerTitle');
+categoryPicker.innerHTML='<div class="category-picker-layout"><header class="category-picker-header"><div class="category-picker-title"><h2 id="categoryPickerTitle">Facebook category</h2><button type="button" id="closeCategoryPicker" aria-label="Close categories">×</button></div><input id="categoryQuery" type="search" placeholder="Search all categories…" aria-label="Search Facebook categories" autocomplete="off"><p id="categoryResultCount" role="status"></p></header><div id="categoryResults" aria-label="Categories"></div></div>';
+document.body.append(categoryPicker);
+let activeCategoryField=null,categoryCloseTimer=null;
+const categorySearchIndex=FACEBOOK_CATEGORIES.map(value=>({value,search:value.toLowerCase(),parts:value.split('//')}));
+function renderCategoryResults(){
+ const words=$('categoryQuery').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+ const matches=categorySearchIndex.filter(item=>words.every(word=>item.search.includes(word)));
+ const fragment=document.createDocumentFragment();
+ function result(value,title,path){
+  const button=document.createElement('button');button.type='button';button.className='category-result';button.setAttribute('aria-pressed',String(activeCategoryField?.value===value));
+  const name=document.createElement('strong');name.textContent=title;button.append(name);
+  if(path){const detail=document.createElement('small');detail.textContent=path;button.append(detail)}
+  button.onclick=()=>{if(!activeCategoryField)return;activeCategoryField.value=value;activeCategoryField.dispatchEvent(new Event('input',{bubbles:true}));closeCategoryPicker()};fragment.append(button);
+ }
+ result('','No category','Leave this optional field blank');
+ for(const item of matches)result(item.value,item.parts[item.parts.length-1],item.parts.slice(0,-1).join(' › '));
+ if(!matches.length){const empty=document.createElement('p');empty.className='category-empty';empty.textContent='No categories found. Try a broader term or fewer words.';fragment.append(empty)}
+ $('categoryResults').replaceChildren(fragment);$('categoryResults').scrollTop=0;
+ $('categoryResultCount').textContent=matches.length+' matching categor'+(matches.length===1?'y':'ies');
+}
+function openCategoryPicker(field){
+ clearTimeout(categoryCloseTimer);activeCategoryField=field;$('categoryQuery').value='';renderCategoryResults();
+ if(!categoryPicker.open)categoryPicker.showModal();
+ requestAnimationFrame(()=>categoryPicker.classList.add('visible'));$('categoryQuery').focus();
+}
+function closeCategoryPicker(){
+ categoryPicker.classList.remove('visible');clearTimeout(categoryCloseTimer);
+ categoryCloseTimer=setTimeout(()=>{categoryPicker.close();activeCategoryField?.focus();activeCategoryField=null},matchMedia('(prefers-reduced-motion: reduce)').matches?0:220);
+}
+$('categoryQuery').addEventListener('input',renderCategoryResults);$('closeCategoryPicker').onclick=closeCategoryPicker;
+categoryPicker.addEventListener('cancel',event=>{event.preventDefault();closeCategoryPicker()});
 // Reuse the same optional controls in capture and history editing.
 for(const prefix of ['p-','e-']){
  const section=$(prefix==='p-'?'shopifyFields':'editProductFields');
- const categoryLabel=document.createElement('label');categoryLabel.textContent='Facebook category (optional)';
- const categorySearch=document.createElement('input');categorySearch.type='search';categorySearch.placeholder='Search categories…';categorySearch.setAttribute('aria-label','Search Facebook categories');categorySearch.autocomplete='off';
- const category=document.createElement('select');category.id=prefix+'facebookCategory';
- categorySearch.setAttribute('aria-controls',category.id);
- function filterCategories(){
-  const selected=category.value,words=categorySearch.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  const matches=FACEBOOK_CATEGORIES.filter(value=>words.every(word=>value.toLowerCase().includes(word)));
-  category.replaceChildren(new Option(matches.length?'Select category':'No matching categories',''));
-  // Retain the saved selection when searching, until another category is chosen.
-  if(selected&&!matches.includes(selected))category.add(new Option(selected,selected));
-  for(const value of matches)category.add(new Option(value,value));
-  category.value=selected;
- }
- categorySearch.addEventListener('input',filterCategories);
- category.resetSearch=()=>{categorySearch.value='';filterCategories()};
- filterCategories();categoryLabel.append(categorySearch,category);
+ const categoryLabel=document.createElement('div');categoryLabel.style.marginTop='10px';
+ const categoryCaption=document.createElement('label');categoryCaption.textContent='Facebook category (optional)';categoryCaption.htmlFor=prefix+'facebookCategory';
+ const category=document.createElement('button');category.type='button';category.id=prefix+'facebookCategory';category.className='category-field';category.setAttribute('aria-haspopup','dialog');
+ const categoryText=document.createElement('span');category.append(categoryText);
+ let categoryValue='';Object.defineProperty(category,'value',{get:()=>categoryValue,set:value=>{categoryValue=String(value||'');categoryText.textContent=categoryValue?categoryValue.split('//').join(' › '):'Choose a category'}});
+ category.value='';category.onclick=()=>openCategoryPicker(category);categoryLabel.append(categoryCaption,category);
  const conditionLabel=document.createElement('label');conditionLabel.textContent='Facebook condition (optional)';
  const condition=document.createElement('select');condition.id=prefix+'facebookCondition';condition.add(new Option('Select condition',''));
  for(const value of FACEBOOK_CONDITIONS)condition.add(new Option(value,value));
@@ -451,7 +478,7 @@ function hasPendingProduct(sku){return !!state.products[sku]?.dirty||uploadPhoto
 function slugTitle(title){return title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,180).replace(/-$/,'')||'product'}
 function localHandle(sku,title){const p=currentProduct(sku);if(p.locked&&p.handle)return p.handle;const base=slugTitle(title);let handle=base,n=2;while(Object.entries(state.products).some(([key,p])=>key!==sku&&p.handle===handle))handle=base+'-'+n++;return handle}
 function readProduct(prefix){const p={};for(const key of PRODUCT_FIELDS)p[key]=$(prefix+key).value.trim();return p}
-function fillProduct(prefix,p){$(prefix+'facebookCategory').resetSearch();for(const key of PRODUCT_FIELDS)$(prefix+key).value=p[key]??(key==='status'?'draft':key==='quantity'?'1':'')}
+function fillProduct(prefix,p){for(const key of PRODUCT_FIELDS)$(prefix+key).value=p[key]??(key==='status'?'draft':key==='quantity'?'1':'')}
 function renderHandle(){$('productHandle').textContent=currentProduct().handle||'—'}
 function renderProduct(){fillProduct('p-',currentProduct());renderHandle()}
 function validateProduct(p){if(!state.sku.trim()){toast('Enter or scan a SKU first.');return false}if(!p.title){toast('Enter a product title.');return false}for(const key of ['price','quantity','weight'])if(p[key]!==''&&(!Number.isFinite(Number(p[key]))||Number(p[key])<0||(['quantity','weight'].includes(key)&&!Number.isInteger(Number(p[key]))))){toast('Enter a valid '+key+'.');return false}return true}
@@ -684,7 +711,7 @@ $('historyHandle').onclick=()=>{if(!$('historyHandle').dataset.swiped)openHistor
 $('search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadHistory(true),300)};$('loadMore').onclick=()=>loadHistory();$('retryHistory').onclick=$('refreshHistory').onclick=()=>loadHistory(true);
 $('editForm').onsubmit=saveEdit;$('deleteEntry').onclick=()=>deleteRow();$('cancelEdit').onclick=()=>$('editDialog').close();
 window.addEventListener('online',()=>{void uploadPendingPhotos(true);badge();void syncQueue();lookupCounter(state.sku,revision);void indexSheetNames();if($('history').classList.contains('open'))void loadHistory(true)});window.addEventListener('offline',()=>{badge();if($('history').classList.contains('open')){historyGeneration++;unavailableHistory()}});
-document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('settings').hidden){closeSettings();return}if(!$('editDialog').open&&!$('scanDialog').open)closeHistory()});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape'||categoryPicker.open)return;if(!$('settings').hidden){closeSettings();return}if(!$('editDialog').open&&!$('scanDialog').open)closeHistory()});
 renderMode();renderNext();badge();void initializePhotoStore();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames();
 // Refresh time tokens without changing the frozen metadata of an in-flight capture.
 setInterval(()=>{if(!capturing)renderNext();badge()},1000);

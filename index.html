@@ -45,6 +45,7 @@ main{pointer-events:auto;overflow-y:auto;gap:16px;background:radial-gradient(ell
 /* Standard and Shopify forms share camera and filename controls. */
 select,textarea{font:inherit;font-size:16px;color:white;background:#101c25;border:1px solid #607887;border-radius:10px;padding:10px;width:100%;min-height:46px}
 .mode-label{margin-top:14px}.mode-label select{margin-top:4px}
+input[type=search]+select{margin-top:8px}
 #shopifyFields{margin-top:18px}#shopifyFields label,#editProductFields label{margin-top:10px}#shopifyFields h2{margin:0}
 .shopify-actions{margin-top:10px;flex-wrap:wrap}.shopify-actions>*{flex:1}#shopifyStatus{font-size:13px;color:#ffda9f;overflow-wrap:anywhere}
 #standardFields[hidden],#shopifyFields[hidden],#editDimensions[hidden],#editProductFields[hidden]{display:none}
@@ -422,10 +423,21 @@ const FACEBOOK_CONDITIONS=['New','Used - Like New','Used - Good','Used - Fair'];
 for(const prefix of ['p-','e-']){
  const section=$(prefix==='p-'?'shopifyFields':'editProductFields');
  const categoryLabel=document.createElement('label');categoryLabel.textContent='Facebook category (optional)';
+ const categorySearch=document.createElement('input');categorySearch.type='search';categorySearch.placeholder='Search categories…';categorySearch.setAttribute('aria-label','Search Facebook categories');categorySearch.autocomplete='off';
  const category=document.createElement('select');category.id=prefix+'facebookCategory';
- category.add(new Option('Select category',''));
- for(const value of FACEBOOK_CATEGORIES)category.add(new Option(value,value));
- categoryLabel.append(category);
+ categorySearch.setAttribute('aria-controls',category.id);
+ function filterCategories(){
+  const selected=category.value,words=categorySearch.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const matches=FACEBOOK_CATEGORIES.filter(value=>words.every(word=>value.toLowerCase().includes(word)));
+  category.replaceChildren(new Option(matches.length?'Select category':'No matching categories',''));
+  // Retain the saved selection when searching, until another category is chosen.
+  if(selected&&!matches.includes(selected))category.add(new Option(selected,selected));
+  for(const value of matches)category.add(new Option(value,value));
+  category.value=selected;
+ }
+ categorySearch.addEventListener('input',filterCategories);
+ category.resetSearch=()=>{categorySearch.value='';filterCategories()};
+ filterCategories();categoryLabel.append(categorySearch,category);
  const conditionLabel=document.createElement('label');conditionLabel.textContent='Facebook condition (optional)';
  const condition=document.createElement('select');condition.id=prefix+'facebookCondition';condition.add(new Option('Select condition',''));
  for(const value of FACEBOOK_CONDITIONS)condition.add(new Option(value,value));
@@ -439,7 +451,7 @@ function hasPendingProduct(sku){return !!state.products[sku]?.dirty||uploadPhoto
 function slugTitle(title){return title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,180).replace(/-$/,'')||'product'}
 function localHandle(sku,title){const p=currentProduct(sku);if(p.locked&&p.handle)return p.handle;const base=slugTitle(title);let handle=base,n=2;while(Object.entries(state.products).some(([key,p])=>key!==sku&&p.handle===handle))handle=base+'-'+n++;return handle}
 function readProduct(prefix){const p={};for(const key of PRODUCT_FIELDS)p[key]=$(prefix+key).value.trim();return p}
-function fillProduct(prefix,p){for(const key of PRODUCT_FIELDS)$(prefix+key).value=p[key]??(key==='status'?'draft':key==='quantity'?'1':'')}
+function fillProduct(prefix,p){$(prefix+'facebookCategory').resetSearch();for(const key of PRODUCT_FIELDS)$(prefix+key).value=p[key]??(key==='status'?'draft':key==='quantity'?'1':'')}
 function renderHandle(){$('productHandle').textContent=currentProduct().handle||'—'}
 function renderProduct(){fillProduct('p-',currentProduct());renderHandle()}
 function validateProduct(p){if(!state.sku.trim()){toast('Enter or scan a SKU first.');return false}if(!p.title){toast('Enter a product title.');return false}for(const key of ['price','quantity','weight'])if(p[key]!==''&&(!Number.isFinite(Number(p[key]))||Number(p[key])<0||(['quantity','weight'].includes(key)&&!Number.isInteger(Number(p[key]))))){toast('Enter a valid '+key+'.');return false}return true}

@@ -84,6 +84,7 @@ main>.panel,main>.controls{border:0;border-radius:0;box-shadow:none;background:t
 #unsavedSection{margin-top:20px}#unsavedSection h2{font-size:16px}.unsaved-item,.upload-problem{padding:14px 0;border-bottom:1px solid #344955;overflow-wrap:anywhere}.unsaved-item .row,.upload-problem .row{margin-top:10px;flex-wrap:wrap}
 #uploadStatus{color:#ffda9f;font-size:13px}.download-option{display:flex!important;align-items:center;gap:10px}.download-option input{width:22px;min-height:24px;margin:0!important}
 #stagedSection[hidden],#unsavedSection[hidden]{display:none}
+.history-select{appearance:none;flex:0 0 26px;width:26px;height:26px;min-height:26px;padding:0;margin:0;border:2px solid #6f8795;border-radius:6px;background:#101c25;cursor:pointer;transition:background .18s,border-color .18s}.history-select:checked{background:#65e0c6;border-color:#65e0c6}.history-select:checked:after{content:'✓';display:block;text-align:center;line-height:22px;color:#09261f;font-weight:800}.history-select:focus-visible{outline:2px solid white;outline-offset:4px}.entry.selected{background:#65e0c60b}.history-export-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:12px}.history-export-actions[hidden],#exportFacebook[hidden]{display:none}#facebookExportStatus{line-height:1.5}#facebookDownloads a{display:block;color:#73efd4;margin:14px 0;overflow-wrap:anywhere}#facebookExportIssues{padding-left:20px;line-height:1.6;max-height:40dvh;overflow:auto}
 </style>
 </head>
 <body>
@@ -118,6 +119,8 @@ main>.panel,main>.controls{border:0;border-radius:0;box-shadow:none;background:t
 <!-- One pinned scanner dependency; manual entry and camera fallback survive a CDN failure. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" onerror="window.scannerLoadFailed=true"></script>
 <script src="facebook-categories.js"></script>
+<script src="facebook-template.js"></script>
+<script src="facebook-export.js"></script>
 <script>
 'use strict';
 // CONFIG
@@ -346,20 +349,72 @@ async function indexSheetNames(){if(indexing||!state.url||!navigator.onLine)retu
 async function syncQueue(){if(syncing||!navigator.onLine||!state.url){badge();return}if(!photoStoreReady&&!photoStoreFailed)return;syncing=true;let shopifyVerified=false;try{if(photoStoreReady)await bridgePhotoOutbox();while(state.queue.length){const item=state.queue[0];const {id,queuedAt,...payload}=item;payload.mode ||= 'standard';if(payload.mode==='shopify'&&!shopifyVerified){const capabilities=await request({mode:'shopify',sku:payload.sku||''});if(capabilities.apiVersion!==2)throw Error('Deploy the updated Apps Script before syncing Shopify records.');shopifyVerified=true}const result=await request({mode:payload.mode},payload);if(payload.mode==='shopify'&&result.product){const existing=state.products[payload.sku]||{};state.products[payload.sku]={...existing,handle:result.product.handle,locked:true};if(state.sku===payload.sku)renderHandle()}if(photoStoreReady)await photoStoreWrite([],[],[],[id]);state.queue=state.queue.filter(r=>r.id!==id);persist();badge()}}catch(e){message('Sheet sync pending: '+e.message)}finally{syncing=false;badge()}}
 function queueMutation(payload){const id=crypto.randomUUID();state.queue.push({id,mode:state.mode,...payload});if(!persist()){state.queue=state.queue.filter(r=>r.id!==id);return false}badge();void syncQueue();return true}
 // HISTORY PANEL — textContent for all sheet content.
+const selectedHistorySkus=new Set();let facebookExportBusy=false,facebookDownloadUrls=[];
+const historySelection=document.createElement('div');historySelection.className='history-export-actions';historySelection.hidden=true;
+historySelection.innerHTML='<button type="button" id="selectAllHistory">Select all</button><span id="historySelectionCount" class="small" role="status"></span><button type="button" id="exportFacebook" class="primary" hidden>Export to FB</button>';
+$('history').querySelector('header').append(historySelection);
+const facebookExportDialog=document.createElement('dialog');facebookExportDialog.id='facebookExportDialog';facebookExportDialog.setAttribute('aria-labelledby','facebookExportHeading');
+facebookExportDialog.innerHTML='<h2 id="facebookExportHeading">Facebook export</h2><p id="facebookExportStatus" role="status"></p><ul id="facebookExportIssues"></ul><div id="facebookDownloads"></div><button type="button" id="confirmFacebookDownload" class="primary" hidden>Download files</button> <button type="button" id="closeFacebookExport">Close</button>';
+document.body.append(facebookExportDialog);
+function updateHistorySelection(){
+ const skus=new Set(historyItems.map(row=>String(row.sku)));
+ for(const sku of selectedHistorySkus)if(!skus.has(sku))selectedHistorySkus.delete(sku);
+ historySelection.hidden=state.mode!=='shopify';
+ $('selectAllHistory').disabled=historyLoading||!skus.size||facebookExportBusy;
+ $('selectAllHistory').textContent=skus.size&&selectedHistorySkus.size===skus.size?'Deselect all':'Select all';
+ $('historySelectionCount').textContent=selectedHistorySkus.size+' selected';
+ $('exportFacebook').hidden=!selectedHistorySkus.size;$('exportFacebook').disabled=historyLoading||facebookExportBusy;
+}
+$('selectAllHistory').onclick=()=>{const skus=[...new Set(historyItems.map(row=>String(row.sku)))];if(selectedHistorySkus.size===skus.length)selectedHistorySkus.clear();else skus.forEach(sku=>selectedHistorySkus.add(sku));renderHistory()};
+$('closeFacebookExport').onclick=()=>facebookExportDialog.close();
+facebookExportDialog.addEventListener('cancel',event=>{if(facebookExportBusy)event.preventDefault()});
+$('exportFacebook').onclick=exportFacebookHistory;
+async function exportFacebookHistory(){
+ if(facebookExportBusy||!selectedHistorySkus.size)return;
+ const skus=[...selectedHistorySkus];facebookExportBusy=true;updateHistorySelection();$('closeFacebookExport').disabled=true;
+ facebookDownloadUrls.forEach(url=>URL.revokeObjectURL(url));facebookDownloadUrls=[];
+ $('facebookDownloads').replaceChildren();$('facebookExportIssues').replaceChildren();$('confirmFacebookDownload').hidden=true;
+ $('facebookExportStatus').textContent='Preparing selected products…';facebookExportDialog.showModal();
+ try{
+  if(!navigator.onLine)throw Error('Connect to export the latest saved products.');
+  if(typeof InventoryFacebookExport==='undefined'||typeof FACEBOOK_WORKBOOK_TEMPLATE==='undefined')throw Error('Publish facebook-template.js and facebook-export.js alongside index.html, then reload.');
+  await refreshPhotoStore();
+  if(uploadPhotos.some(photo=>skus.includes(String(photo.sku))&&photo.state!=='staged'))throw Error('Selected products still have pending photo uploads. Finish uploads before exporting.');
+  if(uploadPhotos.some(photo=>skus.includes(String(photo.sku))&&photo.state==='staged')||skus.some(sku=>state.products[sku]?.dirty))throw Error('Selected products have unsaved changes. Save them before exporting.');
+  await syncQueue();if(syncing||state.queue.length)throw Error('Finish syncing pending changes before exporting.');
+  const data=await request({mode:'shopify'},{action:'exportFacebook',mode:'shopify',skus},30000);
+  if(!Array.isArray(data.products)||data.products.length!==skus.length)throw Error('Redeploy the updated Apps Script before using Facebook export.');
+  const prepared=InventoryFacebookExport.prepare(data.products,FACEBOOK_CATEGORIES);
+  const issues=prepared.errors.length?prepared.errors:prepared.warnings;
+  for(const text of issues){const li=document.createElement('li');li.textContent=text;$('facebookExportIssues').append(li)}
+  if(prepared.errors.length){$('facebookExportStatus').textContent='Fix these products in history, then export again. No files were downloaded.';return}
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-'),files=[];
+  for(let offset=0;offset<prepared.rows.length;offset+=50){const batch=Math.floor(offset/50)+1,suffix=prepared.rows.length>50?'-batch-'+batch:'';files.push({name:'facebook-marketplace-'+stamp+suffix+'.xlsx',blob:new Blob([InventoryFacebookExport.workbook(FACEBOOK_WORKBOOK_TEMPLATE,prepared.rows.slice(offset,offset+50))],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})})}
+  files.push({name:'fb-bulk-helper-images-'+stamp+'.json',blob:new Blob([JSON.stringify(prepared.mapping,null,2)],{type:'application/json;charset=utf-8'})});
+  const links=files.map(file=>{const url=URL.createObjectURL(file.blob);facebookDownloadUrls.push(url);const link=document.createElement('a');link.href=url;link.download=file.name;link.textContent='Download '+file.name;$('facebookDownloads').append(link);return link});
+  const download=()=>{links.forEach(link=>link.click());$('facebookExportStatus').textContent=skus.length+' products exported. Upload the XLSX to Facebook, then load the JSON in your extension. If Chrome blocked multiple downloads, use the links below.';$('confirmFacebookDownload').textContent='Download files again';$('confirmFacebookDownload').hidden=false};
+  $('confirmFacebookDownload').onclick=download;
+  if(prepared.warnings.length){$('facebookExportStatus').textContent=skus.length+' products ready. Review the adjustments below, then download '+files.length+' files.';$('confirmFacebookDownload').textContent='Download files';$('confirmFacebookDownload').hidden=false}
+  else download();
+ }catch(error){$('facebookExportStatus').textContent=error.message}
+ finally{facebookExportBusy=false;$('closeFacebookExport').disabled=false;updateHistorySelection()}
+}
 function openHistory(){ $('history').classList.add('open');$('history').inert=false;$('history').setAttribute('aria-hidden','false');$('historyHandle').setAttribute('aria-expanded','true');void loadHistory(true)}
 function closeHistory(){$('history').classList.remove('open');$('history').inert=true;$('history').setAttribute('aria-hidden','true');$('historyHandle').setAttribute('aria-expanded','false');$('historyHandle').focus()}
 function unavailableHistory(reason='Connect to load history from the spreadsheet.'){
  historyCached=true;historyLoading=false;historyItems=[];historyTotal=0;historyOffset=0;
  $('historyList').replaceChildren();$('historyStatus').textContent=reason;
  $('retryHistory').hidden=false;$('loadMore').hidden=true;
+ updateHistorySelection();
 }
 function renderProductHistory(){
  const list=$('historyList');list.replaceChildren();const groups=new Map();
  for(const row of historyItems){const sku=String(row.sku);if(!groups.has(sku))groups.set(sku,[]);groups.get(sku).push(row)}
  for(const photos of groups.values()){
   photos.sort((a,b)=>(Number(a.seq)||0)-(Number(b.seq)||0));const row=photos[0];
-  const entry=document.createElement('article');entry.className='entry';
+  const entry=document.createElement('article');entry.className='entry';entry.classList.toggle('selected',selectedHistorySkus.has(String(row.sku)));
   const item=document.createElement('div');item.className='history-item';
+  const select=document.createElement('input');select.type='checkbox';select.className='history-select';select.checked=selectedHistorySkus.has(String(row.sku));select.disabled=facebookExportBusy;select.setAttribute('aria-label','Select '+(row.title||row.sku));select.onchange=()=>{if(select.checked)selectedHistorySkus.add(String(row.sku));else selectedHistorySkus.delete(String(row.sku));entry.classList.toggle('selected',select.checked);updateHistorySelection()};item.append(select);
   function image(photo){const img=document.createElement('img');img.className='history-thumbnail';img.alt='Photo '+photo.seq;img.loading='lazy';const url=photo.imageUrl||(state.imageBase?hostedFilename(photo.filename,state.imageBase):'');if(url)img.src=url;img.onerror=()=>img.removeAttribute('src');return img}
   const info=document.createElement('div');info.className='history-item-info';const title=document.createElement('strong');title.textContent=photos.find(photo=>photo.title)?.title||'Untitled';const detail=document.createElement('div');detail.className='small';detail.textContent='SKU: '+row.sku+' · '+photos.length+' photo'+(photos.length===1?'':'s');info.append(title,detail);item.append(image(row),info);
   const strip=document.createElement('div');strip.className='photo-strip';strip.setAttribute('aria-label','Product photos in order');
@@ -373,6 +428,7 @@ function renderProductHistory(){
   actions.append(edit,removeProduct);entry.append(item,actions);list.append(entry);
  }
  if(!groups.size&&!historyLoading){const empty=document.createElement('p');empty.textContent='No products to show.';list.append(empty)}
+ updateHistorySelection();
 }
 $('editDialog').addEventListener('close',()=>{$('editPhotos')?.remove();$('deleteEntry').textContent='Delete';$('deleteEntry').onclick=()=>deleteRow()});
 async function deleteHistoryProduct(sku,trigger){
@@ -394,11 +450,11 @@ async function loadHistory(reset=false){
  try{const result=await request({mode,action:'list',limit:50,offset:historyOffset,...($('search').value?{q:$('search').value}:{})});if(generation!==historyGeneration)return;if(!Array.isArray(result.items))throw new Error('Invalid history response');if(mode==='shopify'){while(historyOffset+result.items.length<Number(result.total)){const page=await request({mode,action:'list',limit:50,offset:historyOffset+result.items.length,...($('search').value?{q:$('search').value}:{})});if(generation!==historyGeneration)return;if(!Array.isArray(page.items))throw Error('Invalid history response');if(!page.items.length)break;result.items.push(...page.items);result.total=page.total}}historyItems=reset?result.items:[...historyItems,...result.items];historyOffset+=result.items.length;historyTotal=Number(result.total)||0;result.items.forEach(rememberRow);
   // Cache only the current unfiltered, consecutively loaded list.
   if(!$('search').value){state.history=historyItems;state.historyByMode[state.mode]=historyItems}persist();renderNext();renderHistory();$('historyStatus').textContent=`${historyItems.length} of ${historyTotal} entries`;$('loadMore').hidden=historyOffset>=historyTotal||!result.items.length;void syncQueue();
- }catch(e){if(generation!==historyGeneration)return;unavailableHistory(e.message+' · Could not load spreadsheet history. Tap Retry.')}finally{if(generation===historyGeneration)historyLoading=false}
+ }catch(e){if(generation!==historyGeneration)return;unavailableHistory(e.message+' · Could not load spreadsheet history. Tap Retry.')}finally{if(generation===historyGeneration){historyLoading=false;updateHistorySelection()}}
 }
 function renderHistory(){if(state.mode==='shopify'){renderProductHistory();return}const list=$('historyList');list.replaceChildren();for(const row of historyItems){const entry=document.createElement('article');entry.className='entry';const name=document.createElement('strong');name.textContent=state.mode==='shopify'?(row.title||'Untitled'):row.filename;const detail=document.createElement('div');detail.className='small';const date=new Date(row.ts);detail.textContent=`${row.sku} · ${state.mode==='shopify'?'':(row.width??'—')+' × '+(row.height??'—')+' in'} · ${isNaN(date)?row.ts:date.toLocaleString()}`;const button=document.createElement('button');button.textContent=historyCached?'View / queue edit':'Edit';button.onclick=()=>editRow(row);const actions=document.createElement('div');actions.className='history-actions';const remove=document.createElement('button');remove.textContent='Delete';remove.className='danger';remove.disabled=historyCached||!navigator.onLine;remove.onclick=()=>deleteRow(row,remove);actions.append(button,remove);const item=document.createElement('div');item.className='history-item';const thumbnail=document.createElement('img');thumbnail.className='history-thumbnail';thumbnail.alt='';thumbnail.loading='lazy';const imageUrl=row.imageUrl||(state.imageBase&&row.filename?hostedFilename(row.filename,state.imageBase):'');if(imageUrl){thumbnail.src=imageUrl;thumbnail.onerror=()=>thumbnail.removeAttribute('src')}const info=document.createElement('div');info.className='history-item-info';if(state.mode==='shopify')detail.textContent='SKU: '+row.sku;info.append(name,detail);item.append(thumbnail,info);entry.append(item,actions);list.append(entry)}if(!historyItems.length&&!historyLoading){const p=document.createElement('p');p.textContent='No entries to show.';list.append(p)}}
 function editRow(row){editing={...row,mode:state.mode};$('editHeading').textContent=state.mode==='shopify'?'Edit product':'Edit dimensions';$('editDimensions').hidden=state.mode==='shopify';$('editProductFields').hidden=state.mode!=='shopify';if(state.mode==='shopify')fillProduct('e-',row);$('editIdentity').textContent=`SKU: ${row.sku}\nNumber: ${row.seq}\nFilename: ${row.filename}`;$('editWidth').value=row.width??'';$('editHeight').value=row.height??'';$('editError').textContent='';$('editNotice').textContent=historyCached||!navigator.onLine?'Cached record is read-only; changes will be queued until the sheet is reachable.':(state.mode==='shopify'?'Product changes apply to every image for this SKU.':'Only dimensions can be changed.');$('deleteEntry').disabled=historyCached||!navigator.onLine;$('editDialog').showModal()}
-async function saveEdit(e){e.preventDefault();if(!editing)return;const payload={action:'update',mode:editing.mode,sku:editing.sku,filename:editing.filename,...(editing.mode==='shopify'?{product:readProduct('e-')}:{width:$('editWidth').value,height:$('editHeight').value})};if(editing.mode==='shopify'&&!validateProduct(payload.product))return;$('saveEdit').disabled=true;try{
+async function saveEdit(e){e.preventDefault();if(!editing)return;const payload={action:'update',mode:editing.mode,sku:editing.sku,filename:editing.filename,...(editing.mode==='shopify'?{product:readProduct('e-')}:{width:$('editWidth').value,height:$('editHeight').value})};if(editing.mode==='shopify'&&!validateProduct(payload.product,editing.sku))return;$('saveEdit').disabled=true;try{
   if(!navigator.onLine||historyCached||state.queue.length){queueMutation(payload);toast('Dimension edit queued');$('editDialog').close();return}
   try{await request({},payload)}catch(error){queueMutation(payload);toast('Connection failed; dimension edit queued');$('editDialog').close();return}
   if(payload.mode==='shopify'){state.products[editing.sku]={...currentProduct(editing.sku),...payload.product,locked:true};historyItems=historyItems.map(r=>r.sku===editing.sku?{...r,...payload.product}:r);state.history=state.history.map(r=>r.sku===editing.sku?{...r,...payload.product}:r);renderProduct()}else{Object.assign(editing,{width:payload.width,height:payload.height});historyItems=historyItems.map(r=>r.filename===payload.filename?{...r,width:payload.width,height:payload.height}:r);state.history=state.history.map(r=>r.filename===payload.filename?{...r,width:payload.width,height:payload.height}:r)}state.historyByMode[state.mode]=state.history;persist();renderHistory();$('editDialog').close();void syncQueue();
@@ -482,9 +538,9 @@ function readProduct(prefix){const p={};for(const key of PRODUCT_FIELDS)p[key]=$
 function fillProduct(prefix,p){for(const key of PRODUCT_FIELDS)$(prefix+key).value=p[key]??(key==='status'?'draft':key==='quantity'?'1':'')}
 function renderHandle(){$('productHandle').textContent=currentProduct().handle||'—'}
 function renderProduct(){fillProduct('p-',currentProduct());renderHandle()}
-function validateProduct(p){if(!state.sku.trim()){toast('Enter or scan a SKU first.');return false}if(!p.title){toast('Enter a product title.');return false}for(const key of ['price','quantity','weight'])if(p[key]!==''&&(!Number.isFinite(Number(p[key]))||Number(p[key])<0||(['quantity','weight'].includes(key)&&!Number.isInteger(Number(p[key]))))){toast('Enter a valid '+key+'.');return false}return true}
+function validateProduct(p,sku=state.sku){if(!String(sku).trim()){toast('Enter or scan a SKU first.');return false}if(!p.title){toast('Enter a product title.');return false}for(const key of ['price','quantity','weight'])if(p[key]!==''&&(!Number.isFinite(Number(p[key]))||Number(p[key])<0||(['quantity','weight'].includes(key)&&!Number.isInteger(Number(p[key]))))){toast('Enter a valid '+key+'.');return false}return true}
 function productInput(){if(!state.sku.trim())return;const p={...currentProduct(),...readProduct('p-'),dirty:true};p.handle=localHandle(state.sku,p.title);state.products[state.sku]=p;revision++;persist();renderHandle()}
-function renderMode(){$('mode').value=state.mode;$('standardFields').hidden=state.mode==='shopify';$('shopifyFields').hidden=state.mode!=='shopify';renderProduct();renderUploadUI()}
+function renderMode(){$('mode').value=state.mode;$('standardFields').hidden=state.mode==='shopify';$('shopifyFields').hidden=state.mode!=='shopify';renderProduct();renderUploadUI();selectedHistorySkus.clear();updateHistorySelection()}
 function switchMode(mode){if(capturing)return;state.historyByMode[state.mode]=state.history;state.mode=mode;state.history=state.historyByMode[mode]||[];historyGeneration++;historyLoading=false;historyItems=[];$('search').value='';revision++;persist();renderMode();renderNext();lookupCounter(state.sku,revision);void indexSheetNames()}
 async function saveProduct(){
  if(capturing||productCommitting||$('saveProduct').disabled)return;
@@ -712,7 +768,7 @@ $('historyHandle').onclick=()=>{if(!$('historyHandle').dataset.swiped)openHistor
 $('search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadHistory(true),300)};$('loadMore').onclick=()=>loadHistory();$('retryHistory').onclick=$('refreshHistory').onclick=()=>loadHistory(true);
 $('editForm').onsubmit=saveEdit;$('deleteEntry').onclick=()=>deleteRow();$('cancelEdit').onclick=()=>$('editDialog').close();
 window.addEventListener('online',()=>{void uploadPendingPhotos(true);badge();void syncQueue();lookupCounter(state.sku,revision);void indexSheetNames();if($('history').classList.contains('open'))void loadHistory(true)});window.addEventListener('offline',()=>{badge();if($('history').classList.contains('open')){historyGeneration++;unavailableHistory()}});
-document.addEventListener('keydown',e=>{if(e.key!=='Escape'||categoryPicker.open)return;if(!$('settings').hidden){closeSettings();return}if(!$('editDialog').open&&!$('scanDialog').open)closeHistory()});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape'||categoryPicker.open||facebookExportDialog.open)return;if(!$('settings').hidden){closeSettings();return}if(!$('editDialog').open&&!$('scanDialog').open)closeHistory()});
 renderMode();renderNext();badge();void initializePhotoStore();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames();
 // Refresh time tokens without changing the frozen metadata of an in-flight capture.
 setInterval(()=>{if(!capturing)renderNext();badge()},1000);

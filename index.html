@@ -110,6 +110,7 @@ main>.panel,main>.controls{border:0;border-radius:0;box-shadow:none;background:t
 <dialog id="editDialog"><h2 id="editHeading">Edit dimensions</h2><div id="editIdentity" class="readonly"></div><p id="editNotice" class="small"></p><form id="editForm"><div id="editDimensions" class="fields"><label>Width<input id="editWidth" type="number" min="0" step="any"></label><label>Height<input id="editHeight" type="number" min="0" step="any"></label></div><div id="editProductFields" hidden><label>Product title<input id="e-title" autocomplete="off" placeholder="Product title"></label><div class="fields"><label>Price<input id="e-price" type="number" min="0" step="0.01" inputmode="decimal"></label><label>Quantity<input id="e-quantity" type="number" min="0" step="1" inputmode="numeric"></label></div><label>Description<textarea id="e-description" rows="3"></textarea></label><div class="fields"><label>Vendor<input id="e-vendor"></label><label>Product type<input id="e-type"></label></div><label>Tags<input id="e-tags" placeholder="vintage, lighting"></label><div class="fields"><label>Weight (grams)<input id="e-weight" type="number" min="0" step="1" inputmode="numeric"></label><label>Status<select id="e-status"><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></select></label></div></div><p id="editError" role="alert"></p><div class="row"><button id="saveEdit" type="submit">Save</button><button id="deleteEntry" type="button">Delete</button><button id="cancelEdit" type="button">Close</button></div></form></dialog>
 <!-- One pinned scanner dependency; manual entry and camera fallback survive a CDN failure. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" onerror="window.scannerLoadFailed=true"></script>
+<script src="facebook-categories.js"></script>
 <script>
 'use strict';
 // CONFIG
@@ -416,7 +417,23 @@ function closeSettings(){$('settings').hidden=true;$('mainScreen').inert=false;$
 
 function swipe(element,up,down){let y=null;element.addEventListener('pointerdown',e=>{y=e.clientY;element.setPointerCapture(e.pointerId)});element.addEventListener('pointerup',e=>{if(y===null)return;const delta=e.clientY-y;y=null;if(Math.abs(delta)>35){element.dataset.swiped='1';delta<0?up():down();setTimeout(()=>delete element.dataset.swiped,400)}});element.addEventListener('pointercancel',()=>y=null)}
 // SHOPIFY — one SKU is one simple product; names stand in for hosted image URLs.
-const PRODUCT_FIELDS=['title','description','price','vendor','type','tags','quantity','weight','status'];
+const FACEBOOK_CONDITIONS=['New','Used - Like New','Used - Good','Used - Fair'];
+// Reuse the same optional controls in capture and history editing.
+for(const prefix of ['p-','e-']){
+ const section=$(prefix==='p-'?'shopifyFields':'editProductFields');
+ const categoryLabel=document.createElement('label');categoryLabel.textContent='Facebook category (optional)';
+ const category=document.createElement('select');category.id=prefix+'facebookCategory';
+ category.add(new Option('Select category',''));
+ for(const value of FACEBOOK_CATEGORIES)category.add(new Option(value,value));
+ categoryLabel.append(category);
+ const conditionLabel=document.createElement('label');conditionLabel.textContent='Facebook condition (optional)';
+ const condition=document.createElement('select');condition.id=prefix+'facebookCondition';condition.add(new Option('Select condition',''));
+ for(const value of FACEBOOK_CONDITIONS)condition.add(new Option(value,value));
+ conditionLabel.append(condition);
+ if(prefix==='p-')section.insertBefore(categoryLabel,section.querySelector('p'));else section.append(categoryLabel);
+ categoryLabel.after(conditionLabel);
+}
+const PRODUCT_FIELDS=['title','description','price','vendor','type','tags','quantity','weight','status','facebookCategory','facebookCondition'];
 function currentProduct(sku=state.sku){return state.products[sku]||{title:'',description:'',price:'',vendor:'',type:'',tags:'',quantity:'1',weight:'',status:'draft',handle:'',locked:false}}
 function hasPendingProduct(sku){return !!state.products[sku]?.dirty||uploadPhotos.some(photo=>photo.mode==='shopify'&&photo.sku===sku&&photo.state==='staged')||state.queue.some(r=>r.mode==='shopify'&&r.sku===sku)}
 function slugTitle(title){return title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,180).replace(/-$/,'')||'product'}

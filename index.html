@@ -86,6 +86,10 @@ main>.panel,main>.controls{border:0;border-radius:0;box-shadow:none;background:t
 #stagedSection[hidden],#unsavedSection[hidden]{display:none}
 .history-select{appearance:none;flex:0 0 26px;width:26px;height:26px;min-height:26px;padding:0;margin:0;border:2px solid #6f8795;border-radius:6px;background:#101c25;cursor:pointer;transition:background .18s,border-color .18s}.history-select:checked{background:#65e0c6;border-color:#65e0c6}.history-select:checked:after{content:'✓';display:block;text-align:center;line-height:22px;color:#09261f;font-weight:800}.history-select:focus-visible{outline:2px solid white;outline-offset:4px}.entry.selected{background:#65e0c60b}.history-export-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:12px}.history-export-actions[hidden],#exportFacebook[hidden]{display:none}#facebookExportStatus{line-height:1.5}#facebookDownloads a{display:block;color:#73efd4;margin:14px 0;overflow-wrap:anywhere}#facebookExportIssues{padding-left:20px;line-height:1.6;max-height:40dvh;overflow:auto}
 /* Shared label spacing and compact barcode scan controls. */
+main .description-wrap{margin-top:8px}
+#mainScreen .description-wrap textarea,#editDialog .description-wrap textarea{margin-top:0}
+.description-wrap{position:relative}.description-wrap textarea{display:block;resize:vertical}.description-wrap.has-quick-text textarea{padding-bottom:58px}.quick-text-actions{position:absolute;left:8px;right:8px;bottom:8px;display:flex;justify-content:flex-end;gap:6px;overflow-x:auto;padding:2px}.quick-text-actions[hidden]{display:none}.quick-text-shortcut{flex:0 0 auto;min-height:36px;padding:6px 10px;border:0;border-radius:18px;background:#65e0c6;color:#09261f;font-size:12px;font-weight:700}.quick-text-shortcut:focus-visible{outline:2px solid white;outline-offset:2px}.quick-text-option-content{flex:1;min-width:0}#settings .quick-text-option .quick-text-toggle{margin:0 0 8px}
+#quickTextSettings{margin-top:28px;border-top:1px solid #344955;padding-top:20px}#quickTextSettings h2{margin-bottom:12px}#settings .quick-text-toggle{display:flex;align-items:center;gap:10px}#settings .quick-text-toggle input{width:22px;min-height:24px;margin:0}.quick-text-option{display:flex;gap:8px;align-items:flex-start;margin:12px 0}.quick-text-option textarea{flex:1;min-width:0;resize:vertical}.quick-text-option button{flex:0 0 46px;padding:0}#settings #addQuickText{margin-top:4px}#quickTextPicker .quick-text-choice{display:block;width:100%;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0}#quickTextPicker h2{margin-bottom:16px}
 main label>input,main label>select,main label>textarea,main .sku-input-wrap,main .category-field{margin-top:8px}
 .sku-input-wrap #sku{margin-top:0;padding-right:52px}
 .history-search-wrap #search{padding-right:52px}
@@ -782,6 +786,52 @@ $('search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>lo
 $('editForm').onsubmit=saveEdit;$('deleteEntry').onclick=()=>deleteRow();$('cancelEdit').onclick=()=>$('editDialog').close();
 window.addEventListener('online',()=>{void uploadPendingPhotos(true);badge();void syncQueue();lookupCounter(state.sku,revision);void indexSheetNames();if($('history').classList.contains('open'))void loadHistory(true)});window.addEventListener('offline',()=>{badge();if($('history').classList.contains('open')){historyGeneration++;unavailableHistory()}});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape'||categoryPicker.open||facebookExportDialog.open)return;if(!$('settings').hidden){closeSettings();return}if(!$('editDialog').open&&!$('scanDialog').open)closeHistory()});
+// QUICK TEXT — each enabled phrase has its own immediate description shortcut.
+state.quickTextEnabled=state.quickTextEnabled===true;
+state.quickTexts=Array.isArray(state.quickTexts)?state.quickTexts.filter(option=>typeof option==='string'||option&&typeof option.text==='string').map(option=>typeof option==='string'?{text:option,enabled:true}:{text:option.text,enabled:option.enabled!==false}):[];
+const quickTextSettings=document.createElement('section');quickTextSettings.id='quickTextSettings';
+quickTextSettings.innerHTML='<h2>Quick Text</h2><label class="quick-text-toggle"><input id="quickTextEnabled" type="checkbox"> Enable description shortcuts</label><p class="small">Save phrases to append to product descriptions.</p><div id="quickTextOptions"></div><button id="addQuickText" type="button" aria-label="Add Quick Text option">+ Add option</button>';
+$('settingsForm').insertBefore(quickTextSettings,$('settingsForm').lastElementChild);
+function numberQuickTextOptions(){[...$('quickTextOptions').children].forEach((row,index)=>{row.querySelector('span').textContent='Quick Text option '+(index+1);row.querySelector('textarea').setAttribute('aria-label','Quick Text phrase '+(index+1))})}
+function addQuickTextOption(option={text:'',enabled:true}){
+ const row=document.createElement('div');row.className='quick-text-option';
+ const content=document.createElement('div');content.className='quick-text-option-content';
+ const toggle=document.createElement('label');toggle.className='quick-text-toggle';const enabled=document.createElement('input');enabled.type='checkbox';enabled.checked=option.enabled;const caption=document.createElement('span');toggle.append(enabled,caption);
+ const text=document.createElement('textarea');text.rows=2;text.value=option.text;text.placeholder='Enter a reusable phrase';
+ const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove Quick Text option');remove.onclick=()=>{row.remove();numberQuickTextOptions()};
+ content.append(toggle,text);row.append(content,remove);$('quickTextOptions').append(row);numberQuickTextOptions();return text;
+}
+function fillQuickTextSettings(){
+ $('quickTextEnabled').checked=state.quickTextEnabled;$('quickTextOptions').replaceChildren();
+ for(const text of state.quickTexts)addQuickTextOption(text);
+ if(!state.quickTexts.length)addQuickTextOption();
+}
+$('addQuickText').onclick=()=>addQuickTextOption().focus();
+$('settingsButton').addEventListener('click',fillQuickTextSettings);
+function appendQuickText(field,text){
+ const existing=field.value.replace(/\s+$/,'');field.value=existing?existing+'\n\n'+text:text;
+ field.dispatchEvent(new Event('input',{bubbles:true}));field.scrollTop=field.scrollHeight;
+}
+for(const prefix of ['p-','e-']){
+ const field=$(prefix+'description'),wrap=document.createElement('div');wrap.className='description-wrap';field.before(wrap);wrap.append(field);
+ const actions=document.createElement('div');actions.className='quick-text-actions';wrap.append(actions);
+}
+function updateQuickTextButtons(){
+ for(const actions of document.querySelectorAll('.quick-text-actions')){
+  actions.replaceChildren();const field=actions.parentElement.querySelector('textarea');
+  if(state.quickTextEnabled)state.quickTexts.forEach((option,index)=>{
+   if(!option.enabled||!option.text.trim())return;
+   const button=document.createElement('button');button.type='button';button.className='quick-text-shortcut';button.textContent='QT #'+(index+1);button.title=option.text;button.setAttribute('aria-label','Append Quick Text '+(index+1)+': '+option.text);button.onclick=()=>appendQuickText(field,option.text);actions.append(button);
+  });
+  actions.hidden=!actions.childElementCount;actions.parentElement.classList.toggle('has-quick-text',!!actions.childElementCount);
+ }
+}
+$('settingsForm').addEventListener('submit',()=>{
+ state.quickTextEnabled=$('quickTextEnabled').checked;
+ state.quickTexts=[...$('quickTextOptions').children].map(row=>({text:row.querySelector('textarea').value.trim(),enabled:row.querySelector('input').checked}));
+ persist();updateQuickTextButtons();
+});
+fillQuickTextSettings();updateQuickTextButtons();
 renderMode();renderNext();badge();void initializePhotoStore();lookupCounter(state.sku,revision);void syncQueue();void indexSheetNames();
 // Refresh time tokens without changing the frozen metadata of an in-flight capture.
 setInterval(()=>{if(!capturing)renderNext();badge()},1000);

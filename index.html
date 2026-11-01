@@ -104,7 +104,7 @@ main label>input,main label>select,main label>textarea,main .sku-input-wrap,main
 <main id="mainScreen">
  <section class="panel">
   <div class="row toolbar"><strong>Inventory Camera</strong><button id="syncNow"><span id="syncTitle">Sync now</span><small id="syncAge">Never synced</small><small id="uploadBadge">Loading photo storage…</small></button><button id="settingsButton" aria-label="Open settings">⚙</button></div>
-  <button id="takePhoto" class="primary">Take photo</button>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;align-items:center"><button id="takePhoto" class="primary">Take photo</button><button id="uploadPhotos" type="button">Upload photos</button></div>
   <div class="sku-counter"><label>SKU<div class="sku-input-wrap"><input id="sku" autocomplete="off" placeholder="Scan or type SKU"><button id="scan" type="button" aria-label="Scan SKU" title="Scan SKU"><svg xmlns="http://www.w3.org/2000/svg" viewBox="850 1140 2300 1720" fill="currentColor" aria-hidden="true" focusable="false"><rect x="1109.51" y="1403.46" width="87.79" height="1193.09"/><rect x="1303.7" y="1403.46" width="139.66" height="1193.09"/><rect x="1565.73" y="1403.46" width="73.15" height="1193.09"/><rect x="1731.99" y="1403.46" width="82.47" height="1193.09"/><rect x="1899.54" y="1403.46" width="75.82" height="1193.09"/><rect x="2049.96" y="1403.46" width="51.11" height="1193.09"/><rect x="2178.73" y="1403.46" width="94.44" height="1193.09"/><rect x="2365.11" y="1403.46" width="70.49" height="1193.09"/><rect x="2552.65" y="1403.46" width="142.32" height="1193.09"/><rect x="2804.04" y="1403.46" width="86.46" height="1193.09"/><path d="M900 1589.18V1193.94H1297.37 M1297.37 2806.06H900V2410.82 M2702.63 1193.94H3100V1589.18 M3100 2410.82V2806.06H2702.63" fill="none" stroke="currentColor" stroke-width="68.43" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></label><label>Next number<input id="seq" type="number" min="1" step="1" inputmode="numeric" value="1"></label><button id="plus" aria-label="Increase number">+</button><button id="minus" aria-label="Decrease number">−</button></div>
   <div id="next" class="next" aria-live="polite">Next: —</div>
   <div id="last" class="small">Last saved: —</div>
@@ -119,6 +119,7 @@ main label>input,main label>select,main label>textarea,main .sku-input-wrap,main
 </main>
 <input id="templateInput" type="file" accept=".csv,text/csv" hidden>
 <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
+<input id="uploadPhotoInput" type="file" accept="image/*" multiple hidden>
 <dialog id="scanDialog" aria-label="Barcode scanner"><button id="closeScanner" type="button" aria-label="Close scanner">×</button><div id="camera"></div><p id="scanStatus" role="status"></p><button id="retryScan" hidden>Retry scanner</button></dialog>
 <dialog id="imageCheckDialog"><h2>Image link check</h2><p id="imageCheckSummary"></p><ul id="imageCheckList"></ul><div class="row"><button id="downloadAnyway">Download CSV anyway</button><button id="cancelImageExport">Cancel</button></div></dialog>
 <div id="toast" hidden role="status"></div>
@@ -207,6 +208,7 @@ function renderNext(){
  $('next').textContent='Next: '+(state.sku.trim()?name:'—');
  renderLastSaved();void refreshLastSaved();
  $('takePhoto').disabled=blocked||capturing||productCommitting||!photoStoreReady;
+ $('uploadPhotos').disabled=$('takePhoto').disabled;
  $('sequenceError').textContent=blocked?'This SKU and number or filename has already been saved. Choose another number.':'';
 }
 function skuChanged(value){state.sku=value.trim();revision++;persist();renderNext();renderProduct();renderUploadUI();clearTimeout(lookupTimer);lookupCounter(state.sku,revision)}
@@ -307,7 +309,7 @@ async function jpegFromFile(file,settings=photoMetadata||state){
   return await canvasJPEG(image,output.width,output.height,settings.jpegQuality);
  }finally{image?.close?.();if(url)URL.revokeObjectURL(url)}
 }
-function takePhoto(){
+function takePhoto(inputId='photoInput'){
  if(!photoStoreReady){toast('Photo storage is unavailable or still loading.');return}
  if(!state.sku.trim()){toast('Enter or scan a SKU first.');$('sku').focus();return}
  if(capturing&&!draft)return;
@@ -317,7 +319,34 @@ function takePhoto(){
   if(state.mode==='shopify')productInput();
   photoMetadata={now,sku:state.sku,seq,filename:name,mode:state.mode,photoMaxEdge:state.photoMaxEdge,jpegQuality:state.jpegQuality,imageBase:state.imageBase,...(state.mode==='shopify'?{product:{...currentProduct()}}:{width:state.width,height:state.height})};capturing=true;revision++;renderNext();
  }
- $('photoInput').value='';$('photoInput').click();
+ $(inputId).value='';$(inputId).click();
+}
+async function receivedUploads(){
+ const files=Array.from($('uploadPhotoInput').files),metadata=photoMetadata;
+ if(!files.length){cancelPhoto();return}
+ if(!metadata)return;
+ photoSaving=true;
+ try{
+  // Reserve every filename before decoding so edits cannot change this batch.
+  const rows=files.map((file,i)=>({action:'add',ts:metadata.now.toISOString(),sku:metadata.sku,seq:metadata.seq+i,filename:filename(metadata.seq+i,metadata.now),mode:metadata.mode,...(metadata.mode==='shopify'?{imageBase:metadata.imageBase||''}:{width:metadata.width,height:metadata.height})}));
+  const names=new Set();
+  for(const row of rows){if(alreadySaved(row.sku,row.seq,row.filename)||names.has(row.filename))throw Error('A photo filename is already used. Choose another photo number.');names.add(row.filename)}
+  const photos=[];
+  for(let i=0;i<files.length;i++){
+   const file=files[i];if(file.type&&!file.type.startsWith('image/'))throw Error('Select image files only.');
+   const blob=await jpegFromFile(file,metadata),row=rows[i];
+   photos.push({...row,...(metadata.mode==='shopify'?{product:{...metadata.product,dirty:true}}:{}),blob,createdAt:Date.now(),state:metadata.mode==='shopify'?'staged':'ready',tries:0,lastError:'',nextTry:0});
+  }
+  const outbox=metadata.mode==='standard'?rows.map(row=>({...row,id:crypto.randomUUID(),queuedAt:Date.now()})):[];
+  await photoStoreWrite(photos,[],outbox);
+  state.counters[metadata.sku]=metadata.seq+photos.length;revision++;
+  if(metadata.mode==='standard')for(const row of rows)rememberRow(row);
+  persist();await refreshPhotoStore();
+  if(metadata.mode==='standard'){await bridgePhotoOutbox();if(state.downloadCopy)for(const photo of photos)downloadPhoto(photo)}
+  toast(photos.length+(metadata.mode==='shopify'?' photos staged · save product to upload':' photos saved'));
+  void syncQueue();void uploadPendingPhotos();
+ }catch(e){message('Could not import photos: '+e.message)}
+ finally{photoSaving=false;$('uploadPhotoInput').value='';cancelPhoto()}
 }
 async function receivedPhoto(){
  const file=$('photoInput').files[0];if(!file){cancelPhoto();return}
@@ -776,7 +805,7 @@ $('sku').value=state.sku;$('width').value=state.width;$('height').value=state.he
 $('sku').addEventListener('input',e=>skuChanged(e.target.value));for(const field of ['width','height'])$(field).addEventListener('input',e=>{state[field]=e.target.value;persist();renderNext()});
 $('seq').oninput=e=>{if(e.target.value!==''&&Number.isInteger(Number(e.target.value))&&Number(e.target.value)>=1)setCounter(e.target.value)};$('seq').onchange=e=>setCounter(e.target.value);$('minus').onclick=()=>setCounter(counter()-1);$('plus').onclick=()=>setCounter(counter()+1);
 $('scan').onclick=()=>startCamera('sku');$('historyScan').onclick=()=>startCamera('history');$('camera').addEventListener('pointerup',focusScanner);$('retryScan').onclick=async()=>{const target=scanTarget;await closeScanner();await startCamera(target)};$('closeScanner').onclick=closeScanner;$('scanDialog').addEventListener('cancel',e=>{e.preventDefault();void closeScanner()});
-$('takePhoto').onclick=takePhoto;$('photoInput').onchange=receivedPhoto;$('photoInput').addEventListener('cancel',()=>{if(!draft)cancelPhoto()});
+$('takePhoto').onclick=()=>takePhoto();$('uploadPhotos').onclick=()=>takePhoto('uploadPhotoInput');$('uploadPhotoInput').onchange=receivedUploads;$('uploadPhotoInput').addEventListener('cancel',cancelPhoto);$('photoInput').onchange=receivedPhoto;$('photoInput').addEventListener('cancel',()=>{if(!draft)cancelPhoto()});
 $('retryPhotoSave').onclick=trySavePhoto;$('discardPhoto').onclick=cancelPhoto;
 $('syncNow').onclick=async()=>{void uploadPendingPhotos(true);if(!state.url){$('settingsButton').click();return}await syncQueue();lookupCounter(state.sku,revision);void indexSheetNames()};
 $('settingsButton').onclick=()=>{$('workerUrl').value=state.workerUrl||'';$('uploadToken').value=state.uploadToken||'';$('jpegQuality').value=state.jpegQuality;$('downloadCopy').checked=state.downloadCopy;renderUploadUI();$('imageBase').value=state.imageBase||'';$('photoMaxEdge').value=state.photoMaxEdge;$('mode').value=state.mode;$('template').value=state.template;$('scriptUrl').value=state.url;$('token').value=state.token;openSettings()};$('cancelSettings').onclick=()=>closeSettings();

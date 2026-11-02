@@ -6,7 +6,7 @@
  document.getElementById('takePhoto').parentElement.after(button);
  const dialog=document.createElement('dialog');
  dialog.setAttribute('aria-labelledby','labelHeading');
- dialog.innerHTML=`<h2 id="labelHeading">SKU label generator</h2>
+ dialog.innerHTML=`<h2 id="labelHeading">SKU label generator</h2><p class="small">Generator v3</p>
  <form id="labelForm">
  <label>Fixed prefix<input name="prefix" placeholder="A1-" maxlength="40" autocomplete="off"></label>
  <p class="small">Enter A1- to generate A1-001, A1-002, and so on.</p>
@@ -16,11 +16,12 @@
  <p id="labelRange" class="readonly" aria-live="polite"></p>
  <p class="small">Six codes per 4 × 6 inch label, arranged 2 across × 3 down. Each QR contains its printed SKU. Print the PDF at actual size (100%) on 4 × 6 paper with no added margins. The last page can have empty spaces. Inventory counters are unchanged.</p>
  <p id="labelStatus" role="status"></p>
+ <p><a id="labelDownload" hidden style="color:#73efd4">Download generated PDF</a></p>
  <div class="row"><button type="submit" class="primary">Download PDF</button><button type="button" id="closeLabels">Close</button></div>
  </form>`;
  document.body.append(dialog);
  const form=dialog.querySelector('form'),range=dialog.querySelector('#labelRange'),status=dialog.querySelector('#labelStatus');
- let busy=false,dependencies;
+ let busy=false,dependencies,pdfUrl;
  function values(){
   const prefix=form.elements.prefix.value,start=Number(form.elements.start.value),amount=Number(form.elements.amount.value),digits=Number(form.elements.digits.value);
   if(!form.checkValidity()||![start,amount,digits].every(Number.isSafeInteger)||start+amount-1>999999999)throw Error('Enter a valid range ending at or below 999999999.');
@@ -31,14 +32,26 @@
  function script(src,ready){return new Promise((resolve,reject)=>{
   if(ready()){resolve();return}
   const node=document.createElement('script');node.src=src;
-  const timer=setTimeout(()=>{node.remove();reject(Error('PDF tools took too long to load. Check your connection and retry.'))},20000);
+  const timer=setTimeout(()=>{node.remove();reject(Error('Library timed out: '+src))},12000);
   node.onload=()=>{clearTimeout(timer);ready()?resolve():reject(Error('PDF tools could not initialize.'))};
   node.onerror=()=>{clearTimeout(timer);node.remove();reject(Error('Could not load library: '+src+'. The server may be unavailable or blocked.'))};document.head.append(node);
  })}
+ async function library(name,sources,ready){
+  for(const source of sources){
+   try{await script(source,ready);return}catch{/* Try the independent backup host. */}
+  }
+  throw Error(name+' could not load from either library host. This browser or network may be blocking external scripts. Generator v3.');
+ }
  function load(){
   if(!dependencies)dependencies=Promise.all([
-   script('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',()=>!!window.jspdf?.jsPDF),
-   script('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',()=>typeof window.qrcode==='function')
+   library('PDF library',[
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'
+   ],()=>!!window.jspdf?.jsPDF),
+   library('QR library',[
+    'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',
+    'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'
+   ],()=>typeof window.qrcode==='function')
   ]).catch(error=>{dependencies=null;throw error});
   return dependencies;
  }
@@ -50,6 +63,7 @@
   event.preventDefault();if(busy)return;
   let v;try{v=values()}catch(error){status.textContent=error.message;return}
   busy=true;for(const control of form.elements)control.disabled=true;
+  dialog.querySelector('#labelDownload').hidden=true;
   status.textContent='Loading PDF tools…';
   try{
    await load();
@@ -73,7 +87,11 @@
     pdf.setFontSize(size);pdf.text(sku,x+72,y+132,{align:'center'});
     if(i%12===0){status.textContent='Generating '+(i+1)+' of '+v.amount+'…';await new Promise(resolve=>setTimeout(resolve,0))}
    }
-   pdf.save('sku-labels-'+v.start+'-'+(v.start+v.amount-1)+'.pdf');
+   // Keep a real download link available if a mobile browser blocks an async download.
+   if(pdfUrl)URL.revokeObjectURL(pdfUrl);
+   pdfUrl=URL.createObjectURL(pdf.output('blob'));
+   const download=dialog.querySelector('#labelDownload');
+   download.href=pdfUrl;download.download='sku-labels-'+v.start+'-'+(v.start+v.amount-1)+'.pdf';download.hidden=false;download.click();
    status.textContent='PDF ready · '+v.amount+' SKUs on '+Math.ceil(v.amount/6)+' page(s).';
   }catch(error){status.textContent=error.message||'Could not generate PDF.'}
   finally{busy=false;for(const control of form.elements)control.disabled=false}

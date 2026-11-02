@@ -9,7 +9,7 @@
  dialog.innerHTML=`<h2 id="labelHeading">SKU label generator</h2><p class="small">Generator v3</p>
  <form id="labelForm">
  <label>Fixed prefix<input name="prefix" placeholder="A1-" maxlength="40" autocomplete="off"></label>
- <p class="small">Enter A1- to generate A1-001, A1-002, and so on.</p>
+ <p class="small">Enter A1 or A1- to generate A1-001, A1-002, and so on. A dash is added automatically.</p>
  <div class="fields"><label>Start number<input name="start" type="number" value="1" min="0" max="999999999" step="1" required></label>
  <label>Amount<input name="amount" type="number" value="6" min="1" max="1000" step="1" required></label></div>
  <label>Minimum number digits<input name="digits" type="number" value="3" min="1" max="9" step="1" required></label>
@@ -23,7 +23,9 @@
  const form=dialog.querySelector('form'),range=dialog.querySelector('#labelRange'),status=dialog.querySelector('#labelStatus');
  let busy=false,dependencies,pdfUrl;
  function values(){
-  const prefix=form.elements.prefix.value,start=Number(form.elements.start.value),amount=Number(form.elements.amount.value),digits=Number(form.elements.digits.value);
+  const enteredPrefix=form.elements.prefix.value.trim();
+  const prefix=enteredPrefix?enteredPrefix.replace(/-+$/,'')+'-':'';
+  const start=Number(form.elements.start.value),amount=Number(form.elements.amount.value),digits=Number(form.elements.digits.value);
   if(!form.checkValidity()||![start,amount,digits].every(Number.isSafeInteger)||start+amount-1>999999999)throw Error('Enter a valid range ending at or below 999999999.');
   if(!/^[\x20-\x7e]*$/.test(prefix))throw Error('Use letters, numbers, spaces, and standard punctuation in the prefix.');
   return {prefix,start,amount,digits,sku:i=>prefix+String(start+i).padStart(digits,'0')};

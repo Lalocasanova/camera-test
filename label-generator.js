@@ -33,11 +33,11 @@
   const node=document.createElement('script');node.src=src;
   const timer=setTimeout(()=>{node.remove();reject(Error('PDF tools took too long to load. Check your connection and retry.'))},20000);
   node.onload=()=>{clearTimeout(timer);ready()?resolve():reject(Error('PDF tools could not initialize.'))};
-  node.onerror=()=>{clearTimeout(timer);node.remove();reject(Error('Could not load PDF tools. Check your connection and retry.'))};document.head.append(node);
+  node.onerror=()=>{clearTimeout(timer);node.remove();reject(Error('Could not load library: '+src+'. The server may be unavailable or blocked.'))};document.head.append(node);
  })}
  function load(){
   if(!dependencies)dependencies=Promise.all([
-   script('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',()=>!!window.jspdf?.jsPDF),
+   script('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',()=>!!window.jspdf?.jsPDF),
    script('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',()=>typeof window.qrcode==='function')
   ]).catch(error=>{dependencies=null;throw error});
   return dependencies;
